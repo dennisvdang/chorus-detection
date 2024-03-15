@@ -1,4 +1,5 @@
 # Automated Chorus Detection
+![Chorus Prediction](./images/chorus_prediction.webp)
 
 ## Introduction
 
@@ -8,7 +9,7 @@ This project leverages a Convolutional Recurrent Neural Network (CRNN) to predic
 
 The project focuses on automating the identification of choruses within songs to support various applications in the music industry and improve user listening experiences.
 
-## Methodology
+## Preprocessing
 
 ### Data Preprocessing
 
@@ -127,11 +128,11 @@ The CRNN model requires uniformly structured input for the convolutional layers.
 - **Batch Processing**: Data is further processed into batches, facilitating efficient training. Batches are dynamically generated using a custom data generator, ensuring that the model can handle varying song lengths and structures.
 - **TensorFlow Datasets**: Utilizing TensorFlow's `Dataset` API, we construct datasets from the generator function for each of the training, validation, and test sets. These datasets are optimized for performance, supporting parallel data processing and prefetching.
 
-### Model Architecture and Custom Functions
+## Modeling
 
 The core of this automated chorus detection system is the Convolutional Recurrent Neural Network (CRNN) model, designed to capture both the temporal dynamics and the intricate patterns present in musical compositions. 
 
-#### Initial CRNN Model Architecture
+### Initial CRNN Model Architecture
 
 - **Input Layer**: Receives the preprocessed and standardized feature arrays, segmented by measure and frame.
 - **Convolutional Layers**: Three convolutional layers, each followed by max pooling, extract hierarchical features from the input data, capturing various aspects of the musical signal.
@@ -191,7 +192,7 @@ def custom_accuracy(y_true, y_pred):
     return accuracy
 ```
 
-### Model Training
+### Model Checkpoints
 
 To optimize the training process, we utilize three key TensorFlow callbacks:
 
@@ -199,6 +200,37 @@ To optimize the training process, we utilize three key TensorFlow callbacks:
 - **Early Stopping**: Halts training when validation loss ceases to improve for three epochs, preventing overfitting and ensuring training efficiency.
 - **Reduce Learning Rate on Plateau**: Dynamically lowers the learning rate if the validation loss does not improve after two epochs, facilitating finer adjustments to model weights and aiding in convergence.
 
+### Model training
+The model is trained with the callbacks described above over 10 epochs. Below is the plot showing the training history, including both loss and accuracy over the epochs:
 
+```python
+def plot_training_history(history):
+    plt.figure(figsize=(12, 4))
+
+    # Plot training & validation loss 
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('Model Loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Validation'], loc='upper left')
+
+    # Plot training & validation accuracy values
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history['custom_accuracy'])  
+    plt.plot(history.history['val_custom_accuracy'])  
+    plt.title('Model Accuracy')
+    plt.ylabel('Accuracy')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Validation'], loc='upper left')
+
+    plt.tight_layout()
+    plt.show()
+
+plot_training_history(history)
+```
+
+![Training History](./images/training_history_model1.png)
 
 
