@@ -1,5 +1,23 @@
 # Automated Chorus Detection
-![Chorus Prediction](./images/chorus_prediction.webp)
+![Chorus Prediction](./images/test_predictions/493.png)
+![Chorus Prediction](./images/test_predictions/498.png)
+
+## Table of Contents
+- [Introduction](#introduction)
+- [Data Preprocessing](#data-preprocessing)
+  - [Data Loading](#data-loading)
+  - [Feature Extraction](#feature-extraction)
+  - [Hierarchical Positional Encodings](#hierarchical-positional-encodings)
+  - [Feature Concatenation](#feature-concatenation)
+  - [Preprocessing Code Overview](#preprocessing-code-overview)
+  - [Data Padding](#data-padding)
+  - [Data Splitting and Dataset Creation](#data-splitting-and-dataset-creation)
+- [Modeling](#modeling)
+  - [Initial CRNN Model Architecture](#initial-crnn-model-architecture)
+  - [Custom Loss and Accuracy Functions](#custom-loss-and-accuracy-functions)
+  - [Model Checkpoints](#model-checkpoints)
+  - [Model training](#model-training)
+- [Results](#results)
 
 ## Introduction
 
