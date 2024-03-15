@@ -3,35 +3,42 @@
 
 ## Introduction
 
-This project leverages a Convolutional Recurrent Neural Network (CRNN) to predict chorus locations in songs. This project aims to automate chorus detection, potentially enhancing music recommendation systems and potentially music discovery processes where the "highlights" of a song can be identified more efficiently.
+This project leverages an ensemble of machine learning algorithms and techniques used in Digital Signal Processing, Music Information Retrieval, and Data Science to predict chorus locations in songs. I employ a Convolutional Recurrent Neural Network (CRNN) and novel approach to capture the intricate structure of musical compositions. This is part of a larger **Mixin** project in development, where the goal is to build a fully autonomous system that can generate mixes/mixtapes from a music playlist. Various applications of audio segmentation like this have the potential to enhance music recommendation systems and music discovery processes where the "highlights" of a song can be identified more efficiently.
 
-## Objective
+## Data Preprocessing
 
-The project focuses on automating the identification of choruses within songs to support various applications in the music industry and improve user listening experiences.
+- **Data Loading**: The dataset, comprising 332 labeled songs, is loaded and features extracted mainly using the python library Librosa. The songs were manually annotated to record the start and end times of choruses in a mostly electronic music genre dataset. More details on the annotation process can be found in the (Mixin Annotation Guide)["/Mixin Data Annotation Guide.pdf"].
 
-## Preprocessing
+- **Feature Extraction**: Key features extracted from the audio include Mel spectrogram, Key-invariant Chromagram, MFCCs, Root Mean Squared Energy, and Tempogram. The Mel spectrograms, chromagrams, MFCCs, and Tempograms were decomposed using Non-negative Matrix Factorization and their activations used as features. Features are standardized and weighted evenly, however, future work could entail experimenting to find optimal weights or combinations of features. The temporal structure of songs are also captured through estimations of tempos and time signature (extracted from Spotify API), beat tracking, and meter alignment. The songs were "quantized" or partitioned into their musical meter structure, aiming to provide context for the model's predictions and be temporally coherent with the actual song structure. By aligning the input data to the musical meter structure, we are essentially introducing an inductive bias into the model. This bias can help the CRNN learn features and patterns that are more relevant to the task of chorus detection, as the model is now aware of the underlying musical structure. Segmenting the data into meters can also improve the computational efficiency of the CRNN model. Instead of processing the entire song at once, the model can focus on processing each meter independently, potentially reducing the overall computational load and memory requirements. However, this was done purely out of intuition and requires empirical testing and proofs. 
 
-### Data Preprocessing
+- **Hierarchical Positional Encodings**: In an effort to capture the intricate structure of music, I improvised a novel approach of hierarchical positional encoding. This simple, but intuitive, encoding scheme is hypothesized to enrich the model's input features with two layers of contextual information:
+  1. **Meter-level Encoding**: This layer embeds the position of each musical meter within a song, reflecting the macro-structure of musical compositions such as a verse, chorus, or bridge. By understanding the sequential arrangement of these segments, the model gains insights into the progression and dynamics of a song, which seems crucial, at least for humans, for identifying chorus sections accurately.
+  2. **Frame-level Encoding**: At a more granular level, this encoding embeds the position of each frame within its respective meter, offering the model a detailed temporal context. This fine-grained information could allow the model to discern subtle rhythmic and melodic variations within meters.
 
-- **Data Loading**: The dataset, comprising 332 labeled songs, is loaded using Librosa to identify chorus segments.
+The hierarchical nature of these encodings mirrors the hierarchical structure of music itself, from the broad arrangement of sections down to the timing of individual notes. While the predetermined kernel size may limit the model's ability to learn certain spatial-temporal patterns, the hierarchical positional encoding and the inductive bias introduced by the meter-level segmentation can still provide valuable information that the CRNN can leverage to improve its chorus detection performance. Ultimately, the effectiveness of this approach would need to be empirically evaluated and compared to alternative approaches, such as using a fixed kernel size with varying degrees of segmentation. The tradeoffs between computational efficiency, model complexity, and overall performance should also be carefully considered.
 
-- **Feature Extraction**: Key features extracted from the audio include:
-  - Separation of harmonic and percussive components.
-  - Extraction of onset strength, Mel spectrograms, Chromagrams, Tempograms, and MFCCs.
-  - Non-negative Matrix Factorization activations on selected features to capture essential aspects.
+```python
+def positional_encoding(position, d_model):
+    """Generate a positional encoding for a given position and model dimension."""
+    angle_rads = (
+        np.arange(position)[:, np.newaxis] /
+        np.power(10000, (2 * (np.arange(d_model)[np.newaxis, :] // 2)) / np.float32(d_model))
+    )
+    return np.concatenate([np.sin(angle_rads[:, 0::2]), np.cos(angle_rads[:, 1::2])], axis=-1)
 
-- **Standardization and Weighting**: Features are standardized and weighted to ensure scale consistency and balanced influence on the model.
 
-- **Hierarchical Positional Encodings**: To capture the rich structural nuances inherent in musical compositions, we employ a hierarchical positional encoding scheme. This approach adds two layers of positional information:
-  1. **Meter-level Encoding**: Embeds the position of each meter within the song, acknowledging the structured progression typical in musical compositions. This allows the model to understand and leverage the macro-structure of songs, such as verses, choruses, and bridges, in their sequential context.
-  2. **Frame-level Encoding**: Incorporates the position of each frame within its respective meter, providing fine-grained temporal context. This enables the model to discern the detailed nuances within meters, crucial for capturing the subtle dynamics and rhythms that characterize musical segments.
-
-  The combination of meter-level and frame-level positional encodings (hopefully) equips the model with a deep understanding of both the global structure and the local dynamics of songs, enhancing its ability to predict chorus locations with high precision. Empirical testing is needed to confirm the effectiveness of this approach.
-
-- **Temporal Alignment**: Features are aligned with the song's temporal structure through tempo, time signature (extracted from Spotify API), and beat tracking. This alignment is intuitive, aiming to synchronize the feature data with the musical content to help the model's predictions be temporally coherent with the actual song structure. Empirical testing with and without temporal alignment can confirm its benefits.
+def apply_hierarchical_positional_encoding(segments):
+    """Apply positional encoding at the meter and frame levels to a list of segments."""
+    n_features = segments[0].shape[1]
+    measure_level_encodings = positional_encoding(len(segments), n_features)
+    return [
+        seg + positional_encoding(len(seg), n_features) + measure_level_encodings[i] 
+        for i, seg in enumerate(segments)
+    ]
+```
+- **Feature Concatenation**: After transformations, the data is in the shape: `[time_frames, sum_of_feature_dimensions]` where the sum of feature dimensions in this implementation is `1 + 4 + 3 + 3 + 13 + 12 = 36`, leading to a combined shape of `[audio_frames, 36]`. After the data is partitioned into musical meters, the entire dataset can be conceptualized as a 3D array of `[n_songs, n_segments, 36]`, where `n_segments` varies per song and may require additional padding for consistent processing.
 
 ## Preprocessing Code Overview
-
 ```python
 TARGET_SR = 12000 # Target sample rate chosen to be 1/4 of the original 48kHz.
 HOP_LENGTH = 128  # Hop length for short-time Fourier transform. Hop length of 128 at 12kHz gives a similar frame rate to a hop length of 512 at 48kHz.
@@ -100,33 +107,15 @@ encoded_segments = apply_hierarchical_positional_encoding(meter_segments)
 
 ### Data Padding
 
-The CRNN model requires uniformly structured input for the convolutional layers. Given the inherent variability in song lengths and structures, I employed padding on both the meters and frames. 
+The CRNN model requires uniformly structured input for the convolutional layers. Given the inherent variability in song lengths and structures, I employed padding on both the meters and frames. Each meter was padded to have the same amount of frames in any given meter. And every song was padded to have the same amount of meters. This padding process ensure that the model can process songs of varying lengths without bias. Additionally, label sequences are padded with a special value (-1) to match the length of the padded song structures. Once masking is applied, this special value indicates to the model that these segments are not part of the original song data and should be ignored in the loss and accuracy functions.
 
-#### Frame Padding
-
-- To standardize the length of each meter across all songs and ensure consistent feature analysis by the model, each meter within a song is padded with zeros to match the length of the longest measure found in the dataset. This ensures that every measure has the same number of frames, aligning the temporal resolution across all songs.
-
-#### Meter Padding
-
-- To standardize the number of measures in each song and ensure that the model can process songs of varying lengths without bias, songs with fewer measures than the maximum found in the dataset are padded with measures of zeros. These padding measures are structured to have the same dimensions as real measures, allowing songs of varying structural complexity to be represented in a consistent format for model processing.
-
-#### Label Padding
-
-- Label sequences are padded with a special value (-1) to match the length of the padded song structures. Once masking is applied, this special value indicates to the model that these segments are not part of the original song data and should be ignored in the learning process.
+#### Final Data Shape/Structure
+- The final shape after padding is `[n_songs, max_segments, max_segment_time_frames, 36]`, with `max_segments` and `max_segment_time_frames` being the maximum numbers of meters per song and the maximum frames per meter across the dataset, respectively.
 
 ### Data Splitting and Dataset Creation
 
-#### Splitting Data
-
-- **Partitioning**: The dataset, consisting of padded songs and their corresponding labels, is divided into training, validation, and test sets. 
-  - **Training Set**: 70% of the data is reserved for training, allowing the model to learn the patterns associated with chorus locations within songs.
-  - **Validation Set**: 15% of the data is allocated for validation, used to fine-tune the model's parameters and prevent overfitting.
-  - **Test Set**: The remaining 15% serves as the test set, providing an unbiased evaluation of the final model's performance.
-
-#### Dataset Creation
-
-- **Batch Processing**: Data is further processed into batches, facilitating efficient training. Batches are dynamically generated using a custom data generator, ensuring that the model can handle varying song lengths and structures.
-- **TensorFlow Datasets**: Utilizing TensorFlow's `Dataset` API, we construct datasets from the generator function for each of the training, validation, and test sets. These datasets are optimized for performance, supporting parallel data processing and prefetching.
+- The dataset, consisting of padded songs and their corresponding labels, is divided into training, validation, and test sets at 70/15/15 splits. 
+- Data is further processed into batches. Batches are dynamically generated using a custom data generator and turned into tensors using TensorFlow's `Dataset` API. These datasets are optimized for performance, supporting parallel data processing and prefetching.
 
 ## Modeling
 
@@ -134,7 +123,7 @@ The core of this automated chorus detection system is the Convolutional Recurren
 
 ### Initial CRNN Model Architecture
 
-- **Input Layer**: Receives the preprocessed and standardized feature arrays, segmented by measure and frame.
+- **Input Layer**: Receives the preprocessed and standardized feature arrays, segmented by meter and frame.
 - **Convolutional Layers**: Three convolutional layers, each followed by max pooling, extract hierarchical features from the input data, capturing various aspects of the musical signal.
 - **Recurrent Layer**: A bidirectional LSTM layer processes the time-distributed frame features, enabling the model to understand long-term dependencies and temporal patterns in the song data.
 - **Output Layer**: A time-distributed dense layer with a sigmoid activation function makes binary predictions for each segment/meter, indicating the presence or absence of a chorus.
@@ -169,10 +158,7 @@ def create_crnn_model(max_frames_per_measure, max_measures, feature_per_frame):
 ```
 #### Custom Loss and Accuracy Functions
 
-To accommodate the unique structure of our dataset, particularly the use of padding to standardize input lengths, we employ custom functions for calculating loss and accuracy:
-
-- **Custom Binary Cross-Entropy Loss**: Modified to ignore padded values (labeled as -1) in the loss calculation, ensuring that the model's learning is focused on meaningful data segments only.
-- **Custom Accuracy Metric**: Similarly, this metric disregards padded segments in accuracy calculations, providing a more accurate assessment of the model's performance on relevant song parts.
+To accommodate the use of padding to standardize input lengths, we employ custom functions for calculating loss and accuracy to ignore padded values (labeled as -1) in the loss calculation, ensuring that the model's learning is focused on meaningful data segments only.
 
 ```python
 def custom_binary_crossentropy(y_true, y_pred):
@@ -194,14 +180,13 @@ def custom_accuracy(y_true, y_pred):
 
 ### Model Checkpoints
 
-To optimize the training process, we utilize three key TensorFlow callbacks:
-
-- **Model Checkpoint**: Saves the best model based on validation custom accuracy, ensuring retention of the model version with the highest performance on unseen data.
-- **Early Stopping**: Halts training when validation loss ceases to improve for three epochs, preventing overfitting and ensuring training efficiency.
-- **Reduce Learning Rate on Plateau**: Dynamically lowers the learning rate if the validation loss does not improve after two epochs, facilitating finer adjustments to model weights and aiding in convergence.
+To optimize the training process, we utilize three TensorFlow callbacks:
+- **Model Checkpoint**: Saves the best model based on the validation custom loss function.
+- **Early Stopping**: Halts training when validation loss ceases to improve for three epochs to prevent overfitting and promote training efficiency.
+- **Reduce Learning Rate on Plateau**: Dynamically lowers the learning rate if the validation loss does not improve after two epochs.
 
 ### Model training
-The model is trained with the callbacks described above over 10 epochs. Below is the plot showing the training history, including both loss and accuracy over the epochs:
+The model is trained with the callbacks described above over 20 epochs. Below is the plot showing the training history, including both loss and accuracy over the epochs:
 
 ```python
 def plot_training_history(history):
@@ -233,4 +218,17 @@ plot_training_history(history)
 
 ![Training History](./images/training_history_model1.png)
 
+## Results
 
+The model's performance on the test dataset is summarized below:
+
+| Metric         | Score  |
+|----------------|--------|
+| Test Loss      | 0.234  |
+| Test Accuracy  | 0.899  |
+| F1 Score       | 0.876  |
+
+The model's high accuracy and F1 score suggest it is effective at identifying chorus sections within songs. The balance between precision and recall, as indicated by the F1 score, highlights the model's capability to minimize both false positives and false negatives which is crucial for an autonomous DJ system like Mixin.
+
+## Limitations, Implications, and Future Directions
+While the model demonstrates promising results, it's important to note limitations such as its potential biases towards the predominantly electronic music genre in the dataset. Future work could explore the application of semi-supervised learning techniques to leverage unlabeled data, expand the dataset to include a wider variety of genres, and explore alternative architectures or attention mechanisms that could further enhance model performance, generalizeability, and interpretability. More empirical testing is needed to determine whether the hierarchical positional encoding and segmentation techniques are effective. 
