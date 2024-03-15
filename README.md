@@ -8,7 +8,7 @@ This project leverages machine learning techniques used in Digital Signal Proces
 ## Table of Contents
 - [Introduction](#introduction)
 - [Data Preprocessing](#data-preprocessing)
-  - [Data Loading](#data-loading)
+  - [Data Loading](#Dataset)
   - [Feature Extraction](#feature-extraction)
   - [Hierarchical Positional Encodings](#hierarchical-positional-encodings)
   - [Feature Concatenation](#feature-concatenation)
@@ -24,20 +24,23 @@ This project leverages machine learning techniques used in Digital Signal Proces
 
 ## Data Preprocessing
 
-- **Dataset**: The dataset, comprising 332 labeled songs, is loaded and features extracted mainly using the python library Librosa. The songs were manually annotated to record the start and end times of choruses in a mostly electronic music genre dataset. More details on the annotation process can be found in the [Mixin Annotation Guide](Mixin%20Data%20Annotation%20Guide.pdf).
+### Dataset: The dataset, comprising 332 labeled songs, is loaded and features extracted mainly using the python library Librosa. The songs were manually annotated to record the start and end times of choruses in a mostly electronic music genre dataset. More details on the annotation process can be found in the [Mixin Annotation Guide](Mixin%20Data%20Annotation%20Guide.pdf).
 
 ### Features: 
 - Key features extracted from the audio include Mel spectrogram, Key-invariant Chromagram, MFCCs, Root Mean Squared Energy, and Tempogram. 
 - The Mel spectrograms, chromagrams, MFCCs, and Tempograms were decomposed using Non-negative Matrix Factorization and their activations used as features. 
-- **Meter-based segmentation**: The temporal structure of songs are also captured through estimations of tempos and time signature (extracted from Spotify API), beat tracking, and meter alignment. By aligning the input data to the musical meter structure, we are essentially introducing an inductive bias into the model. This bias can help the CRNN learn features and patterns that are more relevant to the task of chorus detection, as the model is now aware of the underlying musical structure. Segmenting the data into meters can also improve the computational efficiency of the CRNN model. Instead of processing the entire song at once, the model can focus on processing each meter independently, potentially reducing the overall computational load and memory requirements. Below is an example of what meter-based segmentation looks like over an audio feature and labeled chorus.
+
+### Meter-based segmentation: 
+- The temporal structure of songs are also captured through estimations of tempos and time signature (extracted from Spotify API), beat tracking, and meter alignment. By aligning the input data to the musical meter structure, we are essentially introducing an inductive bias into the model. This bias can help the CRNN learn features and patterns that are more relevant to the task of chorus detection, as the model is now aware of the underlying musical structure. Segmenting the data into meters can also improve the computational efficiency of the CRNN model. Instead of processing the entire song at once, the model can focus on processing each meter independently, potentially reducing the overall computational load and memory requirements. Below is an example of what meter-based segmentation looks like over an audio feature and labeled chorus.
 
 ![Meter Visualization](./images/meter_viz.webp)
 
-- **Hierarchical Positional Encodings**: In an effort to capture the intricate structure of music, I improvised a novel approach of hierarchical positional encoding. This simple, but intuitive, encoding scheme is hypothesized to enrich the model's input features with two layers of contextual information:
+### Hierarchical Positional Encodings: 
+- In an effort to capture the intricate structure of music, I improvised a novel approach of hierarchical positional encoding. This simple, but intuitive, encoding scheme is hypothesized to enrich the model's input features with two layers of contextual information:
   1. **Meter-level Encoding**: This layer embeds the position of each musical meter within a song, reflecting the macro-structure of musical compositions such as a verse, chorus, or bridge. By understanding the sequential arrangement of these segments, the model gains insights into the progression and dynamics of a song, which seems crucial, at least for humans, for identifying chorus sections accurately.
   2. **Frame-level Encoding**: At a more granular level, this encoding embeds the position of each frame within its respective meter, offering the model a detailed temporal context. This fine-grained information could allow the model to discern subtle rhythmic and melodic variations within meters.
 
-The hierarchical nature of these encodings mirrors the hierarchical structure of music itself, from the broad arrangement of sections down to the timing of individual notes. While the predetermined kernel size may limit the model's ability to learn certain spatial-temporal patterns, the hierarchical positional encoding and the inductive bias introduced by the meter-level segmentation can still provide valuable information that the CRNN can leverage to improve its chorus detection performance. Ultimately, the effectiveness of this approach would need to be empirically evaluated and compared to alternative approaches, such as using a fixed kernel size with varying degrees of segmentation. The tradeoffs between computational efficiency, model complexity, and overall performance should also be carefully considered.
+- The hierarchical nature of these encodings mirrors the hierarchical structure of music itself, from the broad arrangement of sections down to the timing of individual notes. While the predetermined kernel size may limit the model's ability to learn certain spatial-temporal patterns, the hierarchical positional encoding and the inductive bias introduced by the meter-level segmentation can still provide valuable information that the CRNN can leverage to improve its chorus detection performance. Ultimately, the effectiveness of this approach would need to be empirically evaluated and compared to alternative approaches, such as using a fixed kernel size with varying degrees of segmentation. The tradeoffs between computational efficiency, model complexity, and overall performance should also be carefully considered.
 
 ```python
 def positional_encoding(position, d_model):
@@ -127,16 +130,15 @@ meter_segments = segment_data_measures(combined_features, meter_grid)
 encoded_segments = apply_hierarchical_positional_encoding(meter_segments)
 ```
 
-### Data Padding
+**Data Padding**:
+- The CRNN model requires uniformly structured input for the convolutional layers. Given the inherent variability in song lengths and structures, I employed padding on both the meters and frames. Each meter was padded to have the same amount of frames in any given meter. And every song was padded to have the same amount of meters. This padding process ensure that the model can process songs of varying lengths without bias. Additionally, label sequences are padded with a special value (-1) to match the length of the padded song structures. Once masking is applied, this special value indicates to the model that these segments are not part of the original song data and should be ignored in the loss and accuracy functions.
 
-The CRNN model requires uniformly structured input for the convolutional layers. Given the inherent variability in song lengths and structures, I employed padding on both the meters and frames. Each meter was padded to have the same amount of frames in any given meter. And every song was padded to have the same amount of meters. This padding process ensure that the model can process songs of varying lengths without bias. Additionally, label sequences are padded with a special value (-1) to match the length of the padded song structures. Once masking is applied, this special value indicates to the model that these segments are not part of the original song data and should be ignored in the loss and accuracy functions.
-
-#### Final Data Shape/Structure
+**Final Data Shape/Structure**:
 - The final shape after padding is `[n_songs, max_segments, max_segment_time_frames, 36]`, with `max_segments` and `max_segment_time_frames` being the maximum numbers of meters per song and the maximum frames per meter across the dataset, respectively.
 
 ### Data Splitting and Dataset Creation
 
-- The dataset, consisting of padded songs and their corresponding labels, is divided into training, validation, and test sets at 70/15/15 splits. 
+- The dataset, consisting of padded songs and their corresponding labels, is divided into training, validation, and test sets at **70/15/15 splits**. 
 - Data is further processed into batches. Batches are dynamically generated using a custom data generator and turned into tensors using TensorFlow's `Dataset` API. These datasets are optimized for performance, supporting parallel data processing and prefetching.
 
 ## Modeling
