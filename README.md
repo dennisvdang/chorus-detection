@@ -29,10 +29,6 @@ The project focuses on automating the identification of choruses within songs to
 
 - **Temporal Alignment**: Features are aligned with the song's temporal structure through tempo, time signature (extracted from Spotify API), and beat tracking. This alignment is intuitive, aiming to synchronize the feature data with the musical content to help the model's predictions be temporally coherent with the actual song structure. Empirical testing with and without temporal alignment can confirm its benefits.
 
-### CRNN Architecture
-
-The project employs a CRNN architecture, combining convolutional layers for feature extraction with recurrent layers to capture temporal dependencies, facilitating accurate chorus location predictions.
-
 ## Preprocessing Code Overview
 
 ```python
@@ -103,7 +99,7 @@ encoded_segments = apply_hierarchical_positional_encoding(meter_segments)
 
 ### Data Padding
 
-Ensuring that our CRNN model receives uniformly structured input is crucial for achieving accurate and reliable chorus detection across a diverse range of songs. Given the inherent variability in song lengths and structures, I employed padding on both the meters and frames. 
+The CRNN model requires uniformly structured input for the convolutional layers. Given the inherent variability in song lengths and structures, I employed padding on both the meters and frames. 
 
 #### Frame Padding
 
@@ -133,15 +129,43 @@ Ensuring that our CRNN model receives uniformly structured input is crucial for 
 
 ### Model Architecture and Custom Functions
 
-The core of our automated chorus detection system is the Convolutional Recurrent Neural Network (CRNN) model, designed to capture both the temporal dynamics and the intricate patterns present in musical compositions. The model architecture and its components are meticulously crafted to address the unique challenges of chorus detection in songs.
+The core of this automated chorus detection system is the Convolutional Recurrent Neural Network (CRNN) model, designed to capture both the temporal dynamics and the intricate patterns present in musical compositions. 
 
-#### CRNN Model Architecture
+#### Initial CRNN Model Architecture
 
 - **Input Layer**: Receives the preprocessed and standardized feature arrays, segmented by measure and frame.
 - **Convolutional Layers**: Three convolutional layers, each followed by max pooling, extract hierarchical features from the input data, capturing various aspects of the musical signal.
 - **Recurrent Layer**: A bidirectional LSTM layer processes the time-distributed frame features, enabling the model to understand long-term dependencies and temporal patterns in the song data.
 - **Output Layer**: A time-distributed dense layer with a sigmoid activation function makes binary predictions for each segment/meter, indicating the presence or absence of a chorus.
+- **Model Compilation**: The model is compiled with the Adam optimizer, utilizing the custom binary cross-entropy function for loss and including the custom accuracy metric for performance evaluation.
 
+``` python
+def create_crnn_model(max_frames_per_measure, max_measures, feature_per_frame):
+    """
+    Args:
+    max_frames_per_measure (int): Maximum number of frames per measure.
+    max_measures (int): Maximum number of measures.
+    feature_per_frame (int): Number of features per frame.
+    """
+    frame_input = layers.Input(shape=(max_frames_per_measure, feature_per_frame))
+    conv1 = layers.Conv1D(filters=128, kernel_size=3, activation='relu', padding='same')(frame_input)
+    pool1 = layers.MaxPooling1D(pool_size=2, padding='same')(conv1)
+    conv2 = layers.Conv1D(filters=256, kernel_size=3, activation='relu', padding='same')(pool1)
+    pool2 = layers.MaxPooling1D(pool_size=2, padding='same')(conv2)
+    conv3 = layers.Conv1D(filters=256, kernel_size=3, activation='relu', padding='same')(pool2)
+    pool3 = layers.MaxPooling1D(pool_size=2, padding='same')(conv3)
+    frame_features = layers.Flatten()(pool3)
+    frame_feature_model = Model(inputs=frame_input, outputs=frame_features)
+
+    measure_input = layers.Input(shape=(max_measures, max_frames_per_measure, feature_per_frame))
+    time_distributed = layers.TimeDistributed(frame_feature_model)(measure_input)
+    masking_layer = layers.Masking(mask_value=0.0)(time_distributed)
+    lstm_out = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(masking_layer)
+    output = layers.TimeDistributed(layers.Dense(1, activation='sigmoid'))(lstm_out)
+    model = Model(inputs=measure_input, outputs=output)
+    model.compile(optimizer='adam', loss=custom_binary_crossentropy, metrics=[custom_accuracy])
+    return model
+```
 #### Custom Loss and Accuracy Functions
 
 To accommodate the unique structure of our dataset, particularly the use of padding to standardize input lengths, we employ custom functions for calculating loss and accuracy:
@@ -149,8 +173,32 @@ To accommodate the unique structure of our dataset, particularly the use of padd
 - **Custom Binary Cross-Entropy Loss**: Modified to ignore padded values (labeled as -1) in the loss calculation, ensuring that the model's learning is focused on meaningful data segments only.
 - **Custom Accuracy Metric**: Similarly, this metric disregards padded segments in accuracy calculations, providing a more accurate assessment of the model's performance on relevant song parts.
 
-#### Model Compilation
+```python
+def custom_binary_crossentropy(y_true, y_pred):
+    """Custom binary cross-entropy loss to handle -1 labels, which are used for padding and should be ignored during loss calculation."""
+    y_true = tf.cast(y_true, tf.float32)
+    bce = tf.keras.backend.binary_crossentropy(y_true, y_pred)
+    mask = tf.cast(tf.not_equal(y_true, -1), tf.float32)
+    loss = bce * mask
+    return tf.reduce_sum(loss) / tf.reduce_sum(mask)
 
-The model is compiled with the Adam optimizer, utilizing the custom binary cross-entropy function for loss and including the custom accuracy metric for performance evaluation. This setup ensures that the model training process is optimally tuned to the specificities of our chorus detection task.
+def custom_accuracy(y_true, y_pred):
+    """Custom accuracy metric to handle -1 labels, which are used for padding and should be ignored during accuracy calculation."""
+    mask = tf.cast(tf.not_equal(y_true, -1), tf.float32)
+    correct_predictions = tf.equal(tf.cast(tf.round(y_pred), tf.float32), y_true)
+    masked_correct_predictions = tf.cast(correct_predictions, tf.float32) * mask
+    accuracy = tf.reduce_sum(masked_correct_predictions) / tf.reduce_sum(mask)
+    return accuracy
+```
+
+### Model Training
+
+To optimize the training process, we utilize three key TensorFlow callbacks:
+
+- **Model Checkpoint**: Saves the best model based on validation custom accuracy, ensuring retention of the model version with the highest performance on unseen data.
+- **Early Stopping**: Halts training when validation loss ceases to improve for three epochs, preventing overfitting and ensuring training efficiency.
+- **Reduce Learning Rate on Plateau**: Dynamically lowers the learning rate if the validation loss does not improve after two epochs, facilitating finer adjustments to model weights and aiding in convergence.
+
+
 
 
