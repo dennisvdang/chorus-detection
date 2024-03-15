@@ -69,7 +69,8 @@ def apply_hierarchical_positional_encoding(segments):
 ## Preprocessing Code Overview
 ```python
 TARGET_SR = 12000 # Target sample rate chosen to be 1/4 of the original 48kHz.
-HOP_LENGTH = 128  # Hop length for short-time Fourier transform. Hop length of 128 at 12kHz gives a similar frame rate to a hop length of 512 at 48kHz.
+HOP_LENGTH = 128  # Hop length for short-time Fourier transform. 
+                  # 128 at 12kHz produces a similar frame rate to 512 at 48kHz.
 
 # Load the audio file
 audio_path = f'../data/audio_files/processed/{song_id}.mp3'
@@ -111,7 +112,6 @@ weights = {name: 1.0 / (dims[name] * total_inv_dim) for name in feature_names}
 # Standardize and apply weights
 standardized_weighted_features = [StandardScaler().fit_transform(feature.T).T * weights[name]
                                     for feature, name in zip(features, feature_names)]
-
 # Stack/concat features
 combined_features = np.concatenate(standardized_weighted_features, axis=0).T
 
@@ -123,11 +123,11 @@ bpm = data['sp_tempo'].fillna(tempo).replace(0, tempo).clip(lower=70, upper=140)
 time_signature = int(data['sp_time_signature'].fillna(4).replace(0, 4).values[0])
 beat_interval_in_frames = librosa.time_to_frames(60/bpm, sr=TARGET_SR, hop_length=HOP_LENGTH)
 
-# Measure grid creation and label alignment
+# Meter grid creation and label alignment
 anchor_frame = find_anchor_frame(beats, bpm, TARGET_SR, HOP_LENGTH)
 beat_grid, meter_grid = create_beat_grid(beats, anchor_frame, beat_interval_in_frames, time_signature, len(combined_features))
 aligned_labels = generate_and_align_labels(data, len(combined_features), meter_grid)
-meter_segments = segment_data_measures(combined_features, meter_grid)
+meter_segments = segment_data_meters(combined_features, meter_grid)
 
 # Apply Hierarchical Positional Encoding
 encoded_segments = apply_hierarchical_positional_encoding(meter_segments)
