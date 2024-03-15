@@ -1,6 +1,5 @@
 # Automated Chorus Detection
 ![Chorus Prediction](./images/214.webp)
-![Chorus Prediction](./images/498.webp)
 
 ## Table of Contents
 - [Introduction](#introduction)
