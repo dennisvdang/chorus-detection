@@ -1,6 +1,7 @@
 # Automated Chorus Detection
-![Chorus Prediction](./images/test_predictions/493.png)
-![Chorus Prediction](./images/test_predictions/498.png)
+![Chorus Prediction](./images/214.webp)
+![Chorus Prediction](./images/498.webp)
+![Chorus Prediction](./images/214.webp)
 
 ## Table of Contents
 - [Introduction](#introduction)
@@ -25,7 +26,7 @@ This project leverages an ensemble of machine learning algorithms and techniques
 
 ## Data Preprocessing
 
-- **Data Loading**: The dataset, comprising 332 labeled songs, is loaded and features extracted mainly using the python library Librosa. The songs were manually annotated to record the start and end times of choruses in a mostly electronic music genre dataset. More details on the annotation process can be found in the (Mixin Annotation Guide)["/Mixin Data Annotation Guide.pdf"].
+- **Data Loading**: The dataset, comprising 332 labeled songs, is loaded and features extracted mainly using the python library Librosa. The songs were manually annotated to record the start and end times of choruses in a mostly electronic music genre dataset. More details on the annotation process can be found in the [Mixin Annotation Guide](/Mixin Data Annotation Guide.pdf).
 
 - **Feature Extraction**: Key features extracted from the audio include Mel spectrogram, Key-invariant Chromagram, MFCCs, Root Mean Squared Energy, and Tempogram. The Mel spectrograms, chromagrams, MFCCs, and Tempograms were decomposed using Non-negative Matrix Factorization and their activations used as features. Features are standardized and weighted evenly, however, future work could entail experimenting to find optimal weights or combinations of features. The temporal structure of songs are also captured through estimations of tempos and time signature (extracted from Spotify API), beat tracking, and meter alignment. The songs were "quantized" or partitioned into their musical meter structure, aiming to provide context for the model's predictions and be temporally coherent with the actual song structure. By aligning the input data to the musical meter structure, we are essentially introducing an inductive bias into the model. This bias can help the CRNN learn features and patterns that are more relevant to the task of chorus detection, as the model is now aware of the underlying musical structure. Segmenting the data into meters can also improve the computational efficiency of the CRNN model. Instead of processing the entire song at once, the model can focus on processing each meter independently, potentially reducing the overall computational load and memory requirements. However, this was done purely out of intuition and requires empirical testing and proofs. 
 
