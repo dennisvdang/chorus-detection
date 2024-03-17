@@ -187,7 +187,7 @@ To accommodate the use of padding to standardize input lengths, we employ custom
 
 ```python
 def custom_binary_crossentropy(y_true, y_pred):
-    """Custom binary cross-entropy loss to handle -1 labels, which are used for padding and should be ignored during loss calculation."""
+    """Custom binary cross-entropy loss to handle -1 labels used for padding & ignored during loss calculation."""
     y_true = tf.cast(y_true, tf.float32)
     bce = tf.keras.backend.binary_crossentropy(y_true, y_pred)
     mask = tf.cast(tf.not_equal(y_true, -1), tf.float32)
@@ -195,7 +195,7 @@ def custom_binary_crossentropy(y_true, y_pred):
     return tf.reduce_sum(loss) / tf.reduce_sum(mask)
 
 def custom_accuracy(y_true, y_pred):
-    """Custom accuracy metric to handle -1 labels, which are used for padding and should be ignored during accuracy calculation."""
+    """Custom accuracy metric to handle -1 labels."""
     mask = tf.cast(tf.not_equal(y_true, -1), tf.float32)
     correct_predictions = tf.equal(tf.cast(tf.round(y_pred), tf.float32), y_true)
     masked_correct_predictions = tf.cast(correct_predictions, tf.float32) * mask
