@@ -6,17 +6,16 @@
 This captsone project applies machine learning techniques from Digital Signal Processing, Music Information Retrieval, and Data Science to **predict chorus locations in songs**. A Convolutional Recurrent Neural Network **(CRNN)** is used, along with a novel hierarchical positional encoding approach, resulting in a **test accuracy of 89.9%** and an **F1 score of 0.876**, highlighting an effective balance of precision and thoroughness. This project is part of the larger **Mixin** project in development, where the goal is to build a fully autonomous system that can generate mixes/mixtapes from a music playlist. Various applications of audio segmentation have the potential to enhance music recommendation systems and music discovery processes where the system and its users can benefit from quick, efficient searches for the "highlights" of a song.
 
 ## Table of Contents
-- [Introduction](#introduction)
+- [Executive Summary](#Executive-Summary)
 - [Data Preprocessing](#data-preprocessing)
-  - [Data Loading](#Dataset)
-  - [Feature Extraction](#feature-extraction)
+  - [Dataset Description](#Dataset)
+  - [Feature Extraction](#Features)
+  - [Meter-based segmentation](#Meter--based-segmentation)
   - [Hierarchical Positional Encodings](#hierarchical-positional-encodings)
-  - [Feature Concatenation](#feature-concatenation)
   - [Preprocessing Code Overview](#preprocessing-code-overview)
-  - [Data Padding](#data-padding)
-  - [Data Splitting and Dataset Creation](#data-splitting-and-dataset-creation)
+  - [Data Padding and Dataset Creation](#data-padding-and-dataset-creation)
 - [Modeling](#modeling)
-  - [Initial CRNN Model Architecture](#initial-crnn-model-architecture)
+  - [CRNN Model Architecture](#crnn-model-architecture)
   - [Custom Loss and Accuracy Functions](#custom-loss-and-accuracy-functions)
   - [Model Checkpoints](#model-checkpoints)
   - [Model training](#model-training)
@@ -133,14 +132,13 @@ meter_segments = segment_data_meters(combined_features, meter_grid)
 encoded_segments = apply_hierarchical_positional_encoding(meter_segments)
 ```
 
-**Data Padding**:
+### Data Padding and Dataset Creation:
 - The CRNN model requires uniformly structured input for the convolutional layers. Given the inherent variability in song lengths and structures, I employed padding on both the meters and frames. Each meter was padded to have the same amount of frames in any given meter. And every song was padded to have the same amount of meters. This padding process ensure that the model can process songs of varying lengths without bias. Additionally, label sequences are padded with a special value (-1) to match the length of the padded song structures. Once masking is applied, this special value indicates to the model that these segments are not part of the original song data and should be ignored in the loss and accuracy functions.
 
 **Final Data Shape/Structure**:
 - The final shape after padding is `[n_songs, max_segments, max_segment_time_frames, 36]`, with `max_segments` and `max_segment_time_frames` being the maximum numbers of meters per song and the maximum frames per meter across the dataset, respectively.
 
-### Data Splitting and Dataset Creation
-
+**Dataset Creation:**
 - The dataset, consisting of padded songs and their corresponding labels, is divided into training, validation, and test sets at **70/15/15 splits**. 
 - Data is further processed into batches. Batches are dynamically generated using a custom data generator and turned into tensors using TensorFlow's `Dataset` API. These datasets are optimized for performance, supporting parallel data processing and prefetching.
 
@@ -148,7 +146,7 @@ encoded_segments = apply_hierarchical_positional_encoding(meter_segments)
 
 The core of this automated chorus detection system is the Convolutional Recurrent Neural Network (CRNN) model, designed to capture both the temporal dynamics and the intricate patterns present in musical compositions. 
 
-### Initial CRNN Model Architecture
+### CRNN Model Architecture
 
 - **Input Layer**: Receives the preprocessed and standardized feature arrays, segmented by meter and frame.
 - **Convolutional Layers**: Three convolutional layers, each followed by max pooling, extract hierarchical features from the input data, capturing various aspects of the musical signal.
