@@ -215,9 +215,6 @@ To optimize the training process, we utilize three TensorFlow callbacks:
 ### Model training
 The model is trained with the callbacks described above over 20 epochs. Below is the plot showing the training history, including both loss and accuracy over the epochs:
 
-plot_training_history(history)
-```
-
 ![Training History](./images/training_history_model1.png)
 
 ## Results
