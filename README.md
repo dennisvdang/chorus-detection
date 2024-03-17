@@ -24,7 +24,7 @@ This captsone project applies machine learning techniques from Digital Signal Pr
 
 ## Data Preprocessing
 
-**Dataset**: 
+### Dataset: 
 - The dataset, comprising 332 labeled songs, is loaded and features extracted mainly using the python library Librosa. The songs were manually annotated to record the start and end times of choruses in a mostly electronic music genre dataset. More details on the annotation process can be found in the [Mixin Annotation Guide](Mixin%20Data%20Annotation%20Guide.pdf).
 
 ### Features: 
