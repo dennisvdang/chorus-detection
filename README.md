@@ -1,9 +1,9 @@
 # Automated Chorus Detection
 ![Chorus Prediction](./images/185.webp)
 
-## Introduction
+## Executive Summary
 
-This project leverages machine learning techniques used in Digital Signal Processing, Music Information Retrieval, and Data Science to predict chorus locations in songs. Specifically, I employ a Convolutional Recurrent Neural Network (CRNN), alongside a novel approach to capture the intricate structure of musical compositions that resulted in a test accuracy of 89.9% and F1 score of .876. This is part of a larger **Mixin** project in development, where the goal is to build a fully autonomous system that can generate mixes/mixtapes from a music playlist. Various applications of audio segmentation like this have the potential to enhance music recommendation systems and music discovery processes where the "highlights" of a song can be identified more efficiently.
+This project applies machine learning techniques from Digital Signal Processing, Music Information Retrieval, and Data Science to predict chorus locations in songs. A Convolutional Recurrent Neural Network (CRNN) is used, along with a novel hierarchical positional encoding approach, resulting in a test accuracy of 89.9% and an F1 score of 0.876. This project is part of a larger **Mixin** project in development, where the goal is to build a fully autonomous system that can generate mixes/mixtapes from a music playlist. Various applications of audio segmentation have the potential to enhance music recommendation systems and music discovery processes where the system and its users can benefit from quick, efficient searches for the "highlights" of a song.
 
 ## Table of Contents
 - [Introduction](#introduction)
