@@ -215,31 +215,6 @@ To optimize the training process, we utilize three TensorFlow callbacks:
 ### Model training
 The model is trained with the callbacks described above over 20 epochs. Below is the plot showing the training history, including both loss and accuracy over the epochs:
 
-```python
-def plot_training_history(history):
-    plt.figure(figsize=(12, 4))
-
-    # Plot training & validation loss 
-    plt.subplot(1, 2, 1)
-    plt.plot(history.history['loss'])
-    plt.plot(history.history['val_loss'])
-    plt.title('Model Loss')
-    plt.ylabel('Loss')
-    plt.xlabel('Epoch')
-    plt.legend(['Train', 'Validation'], loc='upper left')
-
-    # Plot training & validation accuracy values
-    plt.subplot(1, 2, 2)
-    plt.plot(history.history['custom_accuracy'])  
-    plt.plot(history.history['val_custom_accuracy'])  
-    plt.title('Model Accuracy')
-    plt.ylabel('Accuracy')
-    plt.xlabel('Epoch')
-    plt.legend(['Train', 'Validation'], loc='upper left')
-
-    plt.tight_layout()
-    plt.show()
-
 plot_training_history(history)
 ```
 
