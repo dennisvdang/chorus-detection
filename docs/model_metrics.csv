@@ -1,21 +1,18 @@
-Category,Description,Parameter,Parameter Values
-"Preprocessing","Processes MP3 files to uniform format, trims silence, and extracts metadata.","input_dir","'path/to/mp3s'"
-,, "output_dir","'path/to/processed_files'"
-,, "sampling_rate","12000 Hz"
-,, "hop_length","128"
-"Feature Extraction","Extracts various audio features like Mel spectrogram, chromagram, MFCCs, RMS energy, and tempogram from audio files.","audio_file","'path/to/processed_file.mp3'"
-,, "features","['Mel spectrogram', 'chromagram', 'MFCCs', 'RMS energy', 'tempogram']"
-,, "n_mfcc","20"
-,, "n_mels","128"
-,, "fmin","0"
-,, "fmax","6000"
-"Modeling","Defines and trains the CRNN model for chorus detection. Includes convolutional layers, LSTM, and dense layers for binary classification.","conv_filters","[128, 256, 256]"
-,, "kernel_size","3"
-,, "pool_size","2"
-,, "LSTM_units","256"
-,, "dropout_rate","0.3"
-,, "optimizer","'adam'"
-,, "loss_function","'custom_binary_crossentropy'"
-,, "metrics","['custom_accuracy']"
-,, "batch_size","32"
-,, "epochs","30"
+Category,Feature,Parameter & Values,Description
+IO/Processing,Sampling Rate,{'sr': '12000 Hz'},Loading audio files with a specific sampling rate for consistent processing across all files.
+Feature Extraction,Mel Spectrogram,"{'n_mels': '128', 'hop_length': '128', 'fmin': '0', 'fmax': '6000'}","Extracts Mel spectrogram with specified Mel bands, hop length, and frequency range."
+Feature Extraction,Chromagram,"{'hop_length': '128', 'n_components': '3'}",Computes and decomposes chromagram into a specified number of components using the given hop length.
+Feature Extraction,MFCCs,"{'n_mfcc': '13', 'hop_length': '128'}",Extracts MFCCs with a specified number of coefficients and hop length.
+Feature Extraction,Tempogram,"{'hop_length': '128', 'n_components': '3'}",Computes and decomposes tempogram into a specified number of components using the given hop length.
+Feature Extraction,RMS,{'hop_length': '128'},Computes RMS energy using the specified hop length.
+Model Architecture,Input Layer,"{'Shape': '(None, 204, 296, 36)'}",Defines the input shape for the CRNN model.
+Model Architecture,Time Distributed Layer,"{'Output Shape': '(None, 204, 9472)'}",Applies a model to every temporal slice of an input.
+Model Architecture,Masking Layer,"{'Output Shape': '(None, 204, 9472)'}",Ignores padded values during model training.
+Model Architecture,Bidirectional LSTM,"{'Output Shape': '(None, 204, 512)'}",Processes sequences forward and backward.
+Model Architecture,Time Distributed Dense,"{'Output Shape': '(None, 204, 1)'}",Makes predictions for each time step.
+Model Architecture,Parameters,"{'Total': '20,234,881', 'Trainable': '20,234,881', 'Non-trainable': '0'}","Details the total, trainable, and non-trainable parameters in the model."
+Training Parameters,Optimizer,{'Type': 'adam'},Optimization algorithm used for minimizing the loss function.
+Training Parameters,Loss Function,{'Type': 'custom_binary_crossentropy'},Custom loss function to handle padding.
+Training Parameters,Metrics,{'Type': 'custom_accuracy'},Custom metric to evaluate model performance.
+Training Parameters,Epochs & Batch Size,"{'Epochs': '20', 'Batch Size': '32'}",Specifies the total number of epochs and a batch size of 32 for training.
+Training Parameters,Callbacks,"{'List': ['ModelCheckpoint', 'EarlyStopping', 'ReduceLROnPlateau']}","Callbacks used during training for checkpointing, early stopping, and reducing learning rate."
