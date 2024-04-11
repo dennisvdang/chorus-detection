@@ -27,7 +27,7 @@ The dataset consists of 332 manually labeled songs, predominantly from electroni
 
 The EDA aimed to uncover insights and patterns to inform model development. We did so through developing an in-depth data profile of the labels, songs, artists, and genres found in the dataset. The validity of labels was also assessed during this stage. Audio features such as spectrogram, tempogram, chromagram, RMS energy, MFCCs, etc. were extracted and visualized to better understand the characteristics of the audio signals that are relevant to the task of chorus detection.
 
-![hspss](./images/hspss.png)
+![hspss](./images/hpss.png)
 ![rms_beat_synced](./images/rms_beat_synced.png)
 ![chromagram](./images/chromagram_stacked.png)
 ![tempogram](./images/tempogram.png)
