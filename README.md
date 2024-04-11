@@ -2,7 +2,7 @@
 
 ![Chorus Prediction](./images/185.webp)
 
-## Executive Summary
+## Project Overview
 
 This project applies machine learning techniques from Digital Signal Processing, Music Information Retrieval, and Data Science to predict chorus locations in songs. The goal is to develop an accurate and efficient automated chorus detection model that can enhance user experience for a music streaming company's new product feature which plays reels of song choruses.
 
@@ -16,6 +16,19 @@ A Convolutional Recurrent Neural Network (CRNN) model is used to make binary pre
 | Recall         | 0.869  |
 | F1 Score       | 0.876  |
 
+### Project Documentation and Resources
+
+- **Final Project Write-up**: For a more in-depth analysis, see the [Final Project Write-up](docs/Capstone_Final_Report.pdf).
+
+- **Data Annotation**: Details on the manual song labeling process are in the [Mixin Data Annotation Guide](docs/Mixin%20Data%20Annotation%20Guide.pdf).
+
+- **Model Metrics**: Key performance metrics for the CRNN model are summarized in the [model_metrics.csv](docs/model_metrics.csv).
+
+- **Notebooks**:
+  - [Preprocessing](notebooks/Preprocessing.ipynb): Audio formatting, trimming, metadata extraction
+  - [EDA](notebooks/Mixin_EDA.ipynb): Exploratory analysis and visualizations of audio features
+  - [Modeling](notebooks/Automated-Chorus-Detection.ipynb): CRNN model preprocessing, architecture, training, evaluation
+
 ## Data
 
 The dataset consists of 332 manually labeled songs, predominantly from electronic music genres. The data wrangling steps included:
@@ -27,7 +40,7 @@ The dataset consists of 332 manually labeled songs, predominantly from electroni
 
 The EDA aimed to uncover insights and patterns to inform model development. We did so through developing an in-depth data profile of the labels, songs, artists, and genres found in the dataset. The validity of labels was also assessed during this stage. Audio features such as spectrogram, tempogram, chromagram, RMS energy, MFCCs, etc. were extracted and visualized to better understand the characteristics of the audio signals that are relevant to the task of chorus detection. More details on the EDA process can be found in the [EDA Jupyter Notebook](notebooks/Mixin_EDA.ipynb).
 
-Below are feature visualizations of a song with 3 choruses (highlighted in green) with the meter segmentation overlayed. 
+Below are feature visualizations of a song with 3 choruses (highlighted in green) with the meter segmentation overlayed.
 
 ![hspss](./images/hpss.png)
 ![rms_beat_synced](./images/rms_beat_synced.png)
@@ -100,6 +113,4 @@ The model achieved strong results on the held-out test set as shown in the summa
 
 ## Limitations, Implications, and Future Directions
 
-While the model demonstrates promising results, it's important to note limitations such as its potential biases towards the predominantly electronic music genre in the dataset. Future work could explore the application of semi-supervised learning techniques to leverage unlabeled data, expand the dataset to include a wider variety of genres, and explore alternative architectures or attention mechanisms that could further enhance model performance, generalizeability, and interpretability. More empirical testing is needed to determine whether the hierarchical positional encoding and segmentation techniques are effective. 
-
-
+While the model demonstrates promising results, it's important to note limitations such as its potential biases towards the predominantly electronic music genre in the dataset. Future work could explore the application of semi-supervised learning techniques to leverage unlabeled data, expand the dataset to include a wider variety of genres, and explore alternative architectures or attention mechanisms that could further enhance model performance, generalizeability, and interpretability. More empirical testing is needed to determine whether the hierarchical positional encoding and segmentation techniques are effective.
