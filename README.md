@@ -6,7 +6,7 @@
 
 This project applies machine learning techniques from Digital Signal Processing, Music Information Retrieval, and Data Science to predict chorus locations in songs. The goal is to develop an accurate and efficient automated chorus detection model that can enhance user experience for a music streaming company's new product feature which plays reels of song choruses.
 
-A Convolutional Recurrent Neural Network (CRNN) model is used to make binary predictions of whether a meter in a song belongs to a chorus or not. The CRNN performance on a holdout test set is summarized in the table below.
+A Convolutional Recurrent Neural Network (CRNN) model is used to make binary predictions of whether a meter in a song belongs to a chorus or not. The CRNN performance on a holdout test set of 50 songs is summarized in the table below.
 
 | Metric         | Score  |
 |----------------|--------|
