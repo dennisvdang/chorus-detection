@@ -1,6 +1,6 @@
 # Automated Chorus Detection
 
-![Chorus Prediction](./images/185.webp)
+![Demo](images/chorus-detection-preview.gif)
 
 ## Project Overview
 
