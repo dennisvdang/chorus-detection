@@ -6,7 +6,9 @@
 
 This project applies machine learning techniques from Digital Signal Processing, Music Information Retrieval, and Data Science to predict chorus locations in songs. The goal is to develop an accurate and efficient automated chorus detection model that can enhance user experience for a music streaming company's new product feature which plays reels of song choruses.
 
-A Convolutional Recurrent Neural Network (CRNN) model is used to make binary predictions of whether a meter in a song belongs to a chorus or not. The CRNN performance on a holdout test set of 50 songs is summarized in the table below.
+A Convolutional Recurrent Neural Network (CRNN) model is used to make binary predictions of whether a meter in a song belongs to a chorus or not. Below is an example of a chorus prediction visualized and the performance on a holdout test set of 50 songs is summarized in the table below.
+
+![Chorus Prediction](./images/185.webp)
 
 | Metric         | Score  |
 |----------------|--------|
@@ -42,15 +44,6 @@ This project repository includes a command-line tool that allows users to input 
 5. **Run the script:** 
    - `python src/chorus_finder.py {youtube url}` Replace `{youtube url}` with the actual YouTube URL (don't need to wrap in quotes).
    - Example: `python src/chorus_finder.py https://www.youtube.com/watch?v=dQw4w9WgXcQ`
-
-### CLI Arguments
-
-The `chorus_finder.py` script accepts the following command-line arguments:
-
-- `url`: YouTube URL of the audio file (required)
-- `--model_path`: Path to the pretrained model (default: `../models/CRNN/best_model.h5`)
-- `--verbose`: Enable verbose output (default: `True`)
-- `--output_plot`: Path to save the plot (default: `output/plots/`)
 
 ## Project Documentation and Resources
 
