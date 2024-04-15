@@ -438,7 +438,7 @@ def plot_predictions(audio_features, binary_predictions, plot_save_path):
     ax.set_ylabel('Amplitude')
     audio_file_name = os.path.basename(audio_features.audio_path)
     ax.set_title(
-        f'Chorus Location Predictions for {os.path.splitext(audio_file_name)[0]}')
+        f'Chorus Predictions for {os.path.splitext(audio_file_name)[0]}')
 
     # Add a green square patch to represent "Chorus" in the legend
     chorus_patch = plt.Rectangle((0, 0), 1, 1, fc='green', alpha=0.3)
@@ -565,8 +565,8 @@ def main(url: str, model_path: str, verbose: bool, output_plot: str = None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Chorus Finder")
     parser.add_argument("url", type=str, help="YouTube URL of the audio file")
-    parser.add_argument("--model_path", type=str, default="../models/CRNN/best_model.h5",
-                        help="Path to the pretrained model (default: ../models/CRNN/best_model.h5)")
+    parser.add_argument("--model_path", type=str, default="models/CRNN/best_model.h5",
+                        help="Path to the pretrained model (default: models/CRNN/best_model.h5)")
     parser.add_argument("--verbose", action="store_true",
                         help="Print detailed logs during the process (default: True)", default=True)
     parser.add_argument("--output_plot", type=str, help="Path to save the plot",

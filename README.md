@@ -16,35 +16,34 @@ A Convolutional Recurrent Neural Network (CRNN) model is used to make binary pre
 | Recall         | 0.869  |
 | F1 Score       | 0.876  |
 
-## Setup
+## CLI Setup and Usage
 
 This project repository includes a command-line tool that allows users to input a YouTube link and utilize the pre-trained CRNN model to detect the chorus sections of the corresponding audio file.
 
+### Setup for Non-Conda Users
+
+1. **Clone the repository or download the project files.**
+2. **Navigate to the project directory in PowerShell or Terminal:** `cd chorus-detection`
+3. **Create a virtual environment:** `make create_venv` or `python -m venv venv`
+4. **Activate the virtual environment:**
+   - On Windows: `venv\Scripts\activate` 
+   - On Unix/Linux/macOS: `source venv/bin/activate`
+5. **Install dependencies:** `pip install -r requirements.txt`
+6. **Run the CLI:**
+   - `make run_venv URL="{youtube url}"` Replace `{youtube url}` with the actual YouTube URL wrapped in quotes.
+   - Example: `make run_venv URL="https://www.youtube.com/watch?v=dQw4w9WgXcQ"`
+
 ### Conda Users
 
-1. Clone the repository or download the project files.
-2. Navigate to the project directory: `cd chorus-detection`
-3. Create the conda environment: `make create_conda_env`
+1. **Clone the repository or download the project files.**
+2. **Navigate to the project directory in cmd:** `cd chorus-detection`
+3. **Create the conda environment:** `conda env create -f environment.yml`
+4. **Activate the Conda environment:** `conda activate chorus-detection`
+5. **Run the script:** 
+   - `python src/chorus_finder.py {youtube url}` Replace `{youtube url}` with the actual YouTube URL (don't need to wrap in quotes).
+   - Example: `python src/chorus_finder.py https://www.youtube.com/watch?v=dQw4w9WgXcQ`
 
-### Non-Conda Users
-
-1. Clone the repository or download the project files. 
-2. Navigate to the project directory: `cd chorus-detection`
-3. Create a virtual environment: `make create_venv`
-
-## Usage
-
-### Conda Users
-
-1. Activate the conda environment: `conda activate chorus-detection` 
-2. Run the script: `make run_conda`
-
-### Non-Conda Users
-
-1. Activate the virtual environment: `source venv/bin/activate` (on Windows, use `venv\Scripts\activate`)
-2. Run the script: `make run_venv`
-
-## CLI Arguments
+### CLI Arguments
 
 The `chorus_finder.py` script accepts the following command-line arguments:
 
@@ -53,7 +52,7 @@ The `chorus_finder.py` script accepts the following command-line arguments:
 - `--verbose`: Enable verbose output (default: `True`)
 - `--output_plot`: Path to save the plot (default: `output/plots/`)
 
-### Project Documentation and Resources
+## Project Documentation and Resources
 
 - **Final Project Write-up**: For a more in-depth analysis, see the [Final Project Write-up](docs/Capstone_Final_Report.pdf).
 
