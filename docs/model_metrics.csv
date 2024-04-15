@@ -1,11 +1,11 @@
-Category,Feature,Parameter & Values,Description
+Category,Feature,Params,Description
 IO/Processing,Sampling Rate,{'sr': '12000 Hz'},Loading audio files with a specific sampling rate for consistent processing across all files.
 Feature Extraction,Mel Spectrogram,"{'n_mels': '128', 'hop_length': '128', 'fmin': '0', 'fmax': '6000'}","Extracts Mel spectrogram with specified Mel bands, hop length, and frequency range."
 Feature Extraction,Chromagram,"{'hop_length': '128', 'n_components': '3'}",Computes and decomposes chromagram into a specified number of components using the given hop length.
 Feature Extraction,MFCCs,"{'n_mfcc': '13', 'hop_length': '128'}",Extracts MFCCs with a specified number of coefficients and hop length.
 Feature Extraction,Tempogram,"{'hop_length': '128', 'n_components': '3'}",Computes and decomposes tempogram into a specified number of components using the given hop length.
 Feature Extraction,RMS,{'hop_length': '128'},Computes RMS energy using the specified hop length.
-Model Architecture,Input Layer,"{'Shape': '(None, 204, 296, 36)'}",Defines the input shape for the CRNN model.
+Model Architecture,Input Layer,"{'Shape': '(None, 204, 296, 36)'}","Defines the input shape for the CRNN model. (batch_size, max_meters, max_frames, num_features) "
 Model Architecture,Time Distributed Layer,"{'Output Shape': '(None, 204, 9472)'}",Applies a model to every temporal slice of an input.
 Model Architecture,Masking Layer,"{'Output Shape': '(None, 204, 9472)'}",Ignores padded values during model training.
 Model Architecture,Bidirectional LSTM,"{'Output Shape': '(None, 204, 512)'}",Processes sequences forward and backward.
