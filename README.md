@@ -115,7 +115,6 @@ The model achieved strong results on the held-out test set as shown in the summa
 
 While the model demonstrates promising results, it's important to note limitations such as its potential biases towards the predominantly electronic music genre in the dataset. Future work could explore the application of semi-supervised learning techniques to leverage unlabeled data, expand the dataset to include a wider variety of genres, and explore alternative architectures or attention mechanisms that could further enhance model performance, generalizeability, and interpretability. More empirical testing is needed to determine whether the hierarchical positional encoding and segmentation techniques are effective.
 
-
 ## Setup and Running the CLI
 
 ![Demo](images/chorus-detection-preview.gif)
@@ -123,8 +122,8 @@ While the model demonstrates promising results, it's important to note limitatio
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/yourrepository.git
-cd yourrepository
+git clone https://github.com/dennisvdang/chorus-detection.git
+cd chorus-detection
 ```
 
 ### Step 2: Environment Setup
@@ -139,37 +138,98 @@ venv\Scripts\activate
 # MacOS/Linux
 source venv/bin/activate
 ```
+
 #### Using conda:
+
 ```bash
 conda create --name myenv python=3.8
 conda activate myenv
 ```
 
 ### Step 3: Install Dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ### Step 4: Install FFmpeg
+
 #### Windows:
+
 - Download from https://ffmpeg.org/download.html, extract, and add to PATH.
+
 #### MacOS:
+
 ```bash
 brew install ffmpeg
 ```
+
 #### Linux:
+
 ```bash
 sudo apt update
 sudo apt install ffmpeg
 ```
 
 ### Step 5: Run the Script
+
 ```bash
-cd src
-python chorus_finder.py --url "https://www.youtube.com/watch?v=example"
+python src/chorus_finder.py --url "https://www.youtube.com/watch?v=example"
 ```
 
-### Step 6: Deactivate the Environment
+## Setup and Running the CLI Using Makefile
+
+This project includes a `Makefile` to simplify the setup and execution process. Below are the steps to use the `Makefile` to run the CLI.
+
+### Step 1: Clone the Repository
+
 ```bash
-deactivate
+git clone https://github.com/dennisvdang/chorus-detection.git
+cd chorus-detection
+```
+
+### Step 2: Setup Environment and Install Dependencies
+
+Run the following command to set up the Python environment and install all necessary dependencies:
+
+```bash
+make setup
+```
+
+This command will create a virtual environment, activate it, and install the dependencies listed in `requirements.txt`.
+
+### Step 3: Install FFmpeg
+
+FFmpeg is required for handling audio processing. Install it according to your operating system:
+
+#### Windows:
+- Download from https://ffmpeg.org/download.html, extract, and add to PATH.
+
+#### MacOS:
+```bash
+brew install ffmpeg
+```
+
+#### Linux:
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+### Step 4: Run the Script
+
+To run the `chorus_finder.py` script using the `Makefile`, use the following command, replacing `"https://www.youtube.com/watch?v=example"` with the actual YouTube URL:
+
+```bash
+make run URL="https://www.youtube.com/watch?v=example"
+```
+
+This command will execute the script with the specified URL.
+
+### Step 5: Clean Up
+
+To clean up the environment and remove temporary files, you can use:
+
+```bash
+make clean
 ```

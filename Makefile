@@ -1,15 +1,19 @@
-.PHONY: create_venv
-create_venv:
+# Makefile
+
+# Setup the Python environment and install dependencies
+setup:
 	python -m venv venv
+	./venv/Scripts/activate
+	pip install -r requirements.txt
 
-.PHONY: run_venv
-run_venv:
-	venv\Scripts\python.exe src/chorus_finder.py $(URL)
+# Run the chorus_finder.py script
+run:
+	python src/chorus_finder.py --url $(URL)
 
-.PHONY: create_conda_env
-create_conda_env:
-	conda env create -f environment.yml
+# Clean up generated files or directories
+clean:
+	rm -rf venv
+	rm -rf __pycache__
 
-.PHONY: run_conda
-run_conda:
-	@echo "Please activate the conda environment manually using 'conda activate chorus-detection' and then run 'python src/chorus_finder.py'"
+# Example of how to make the environment setup and run commands dependent on each other
+all: setup run
