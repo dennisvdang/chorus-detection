@@ -1,3 +1,5 @@
 venv/
 *.mp3
 *.pkl
+src/chorus_finder_V2.py
+models/CRNN/best_model_V2.h5

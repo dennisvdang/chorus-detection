@@ -1,7 +1,5 @@
 # Automated Chorus Detection
 
-![Demo](images/chorus-detection-preview.gif)
-
 ## Project Overview
 
 This project applies machine learning techniques from Digital Signal Processing, Music Information Retrieval, and Data Science to predict chorus locations in songs. The goal is to develop an accurate and efficient automated chorus detection model that can enhance user experience for a music streaming company's new product feature which plays reels of song choruses.
@@ -18,33 +16,6 @@ A Convolutional Recurrent Neural Network (CRNN) model is used to make binary pre
 | Recall         | 0.869  |
 | F1 Score       | 0.876  |
 
-## CLI Setup and Usage
-
-This project repository includes a command-line tool that allows users to input a YouTube link and utilize the pre-trained CRNN model to detect the chorus sections of the corresponding audio file.
-
-### Setup for Non-Conda Users
-
-1. **Clone the repository or download the project files.**
-2. **Navigate to the project directory in PowerShell or Terminal:** `cd chorus-detection`
-3. **Create a virtual environment:** `make create_venv` or `python -m venv venv`
-4. **Activate the virtual environment:**
-   - On Windows: `venv\Scripts\activate` 
-   - On Unix/Linux/macOS: `source venv/bin/activate`
-5. **Install dependencies:** `pip install -r requirements.txt`
-6. **Run the CLI:**
-   - `make run_venv URL="{youtube url}"` Replace `{youtube url}` with the actual YouTube URL wrapped in quotes.
-   - Example: `make run_venv URL="https://www.youtube.com/watch?v=dQw4w9WgXcQ"`
-
-### Conda Users
-
-1. **Clone the repository or download the project files.**
-2. **Navigate to the project directory in cmd:** `cd chorus-detection`
-3. **Create the conda environment:** `conda env create -f environment.yml`
-4. **Activate the Conda environment:** `conda activate chorus-detection`
-5. **Run the script:** 
-   - `python src/chorus_finder.py {youtube url}` Replace `{youtube url}` with the actual YouTube URL (don't need to wrap in quotes).
-   - Example: `python src/chorus_finder.py https://www.youtube.com/watch?v=dQw4w9WgXcQ`
-
 ## Project Documentation and Resources
 
 - **Final Project Write-up**: For a more in-depth analysis, see the [Final Project Write-up](docs/Capstone_Final_Report.pdf).
@@ -56,7 +27,7 @@ This project repository includes a command-line tool that allows users to input 
 - **Notebooks**:
   - [Preprocessing](notebooks/Preprocessing.ipynb): Audio formatting, trimming, metadata extraction
   - [EDA](notebooks/Mixin_EDA.ipynb): Exploratory analysis and visualizations of audio features
-  - [Modeling](notebooks/Automated-Chorus-Detection.ipynb): CRNN model preprocessing, architecture, training, evaluation
+  - [Modeling](notebooks/Automated-Chorus-Detection-V2.ipynb): CRNN model preprocessing, architecture, training, evaluation
 
 ## Data
 
@@ -143,3 +114,62 @@ The model achieved strong results on the held-out test set as shown in the summa
 ## Limitations, Implications, and Future Directions
 
 While the model demonstrates promising results, it's important to note limitations such as its potential biases towards the predominantly electronic music genre in the dataset. Future work could explore the application of semi-supervised learning techniques to leverage unlabeled data, expand the dataset to include a wider variety of genres, and explore alternative architectures or attention mechanisms that could further enhance model performance, generalizeability, and interpretability. More empirical testing is needed to determine whether the hierarchical positional encoding and segmentation techniques are effective.
+
+
+## Setup and Running the CLI
+
+![Demo](images/chorus-detection-preview.gif)
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/yourusername/yourrepository.git
+cd yourrepository
+```
+
+### Step 2: Environment Setup
+
+#### Using virtualenv:
+
+```bash
+pip install virtualenv
+virtualenv venv
+# Windows
+venv\Scripts\activate
+# MacOS/Linux
+source venv/bin/activate
+```
+#### Using conda:
+```bash
+conda create --name myenv python=3.8
+conda activate myenv
+```
+
+### Step 3: Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### Step 4: Install FFmpeg
+#### Windows:
+- Download from https://ffmpeg.org/download.html, extract, and add to PATH.
+#### MacOS:
+```bash
+brew install ffmpeg
+```
+#### Linux:
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+### Step 5: Run the Script
+```bash
+cd src
+python chorus_finder.py --url "https://www.youtube.com/watch?v=example"
+```
+
+### Step 6: Deactivate the Environment
+```bash
+deactivate
+```

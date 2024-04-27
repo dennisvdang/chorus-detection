@@ -6,15 +6,17 @@ processing audio data, loading a pre-trained CRNN model, making predictions
 on the processed audio data, and visualizing the predictions.
 """
 
-# Standard imports
-import argparse
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress TensorFlow logs (must be set before importing TensorFlow)
+import tensorflow as tf
+tf.get_logger().setLevel('ERROR')  # Suppress TensorFlow ERROR logs
 import warnings
+warnings.filterwarnings("ignore")  # Suppress all warnings
+
+import argparse
 from functools import reduce
 from typing import List, Tuple
-import re
-
-# Third-party imports
+import shutil
 import librosa
 import numpy as np
 from matplotlib import pyplot as plt
@@ -23,22 +25,19 @@ from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
 from pytube import YouTube
 from sklearn.preprocessing import StandardScaler
-import tensorflow as tf
 
-# Ignore specific warnings
-warnings.filterwarnings("ignore", category=UserWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
 
 # Constants
 SR = 12000
 HOP_LENGTH = 128
-MAX_FRAMES = 296
-MAX_METERS = 204
-N_FEATURES = 36
-MODEL_PATH = "../models/CRNN/best_model.h5"
+MAX_FRAMES = 300
+MAX_METERS = 201
+N_FEATURES = 15
+MODEL_PATH = "../models/CRNN/best_model_V3.h5"
+AUDIO_TEMP_PATH = "output/temp"
 
 
-def download_audio(url, output_path='output/audio_files'):
+def extract_audio(url, output_path=AUDIO_TEMP_PATH):
     """
     Downloads audio from YouTube URL and saves as MP3 in the specified output path.
 
@@ -47,25 +46,27 @@ def download_audio(url, output_path='output/audio_files'):
     - output_path (str): Path to save the downloaded audio file.
 
     Returns:
-    - str: Path to the downloaded audio file, or None if the download fails.
+    - tuple: Path to the downloaded audio file and the video title, or None if the download fails.
     """
-    yt = YouTube(url)
-    audio = yt.streams.filter(only_audio=True).first()
-
-    # Create the output directory if it doesn't exist
-    os.makedirs(output_path, exist_ok=True)
-
-    # Download the audio file to the specified output path
-    out_file = audio.download(output_path)
-    base, ext = os.path.splitext(out_file)
-    audio_file = base + '.mp3'
-
-    # Check if the file exists and delete it
-    if os.path.exists(audio_file):
-        os.remove(audio_file)
-
-    os.rename(out_file, audio_file)
-    return audio_file
+    try:
+        yt = YouTube(url)
+        video_title = yt.title
+        audio_stream = yt.streams.filter(only_audio=True).first()
+        if audio_stream:
+            os.makedirs(output_path, exist_ok=True)
+            out_file = audio_stream.download(output_path)
+            base, _ = os.path.splitext(out_file)
+            audio_file = base + '.mp3'
+            if os.path.exists(audio_file):
+                os.remove(audio_file)
+            os.rename(out_file, audio_file)
+            return audio_file, video_title
+        else:
+            print("No audio stream found")
+            return None, None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None, None
 
 
 def strip_silence(audio_path):
@@ -95,6 +96,8 @@ class AudioFeature:
         self.melspectrogram = None
         self.meter_grid = None
         self.mfccs = None
+        self.mfcc_acts = None
+        self.n_frames = None
         self.onset_env = None
         self.rms = None
         self.spectrogram = None
@@ -150,15 +153,15 @@ class AudioFeature:
         self.spectrogram, _ = librosa.magphase(
             librosa.stft(self.y, hop_length=self.hop_length))
         self.rms = librosa.feature.rms(
-            S=self.spectrogram, hop_length=self.hop_length)
+            S=self.spectrogram, hop_length=self.hop_length).astype(np.float32)
         self.melspectrogram = librosa.feature.melspectrogram(
-            y=self.y, sr=self.sr, n_mels=128, hop_length=self.hop_length)
+            y=self.y, sr=self.sr, n_mels=128, hop_length=self.hop_length).astype(np.float32)
         self.mel_acts = librosa.decompose.decompose(
-            self.melspectrogram, n_components=4, sort=True)[1]
+            self.melspectrogram, n_components=3, sort=True)[1].astype(np.float32)
         self.chromagram = self.calculate_ki_chroma(
-            self.y_harm, self.sr, self.hop_length)
+            self.y_harm, self.sr, self.hop_length).astype(np.float32)
         self.chroma_acts = librosa.decompose.decompose(
-            self.chromagram, n_components=3, sort=True)[1]
+            self.chromagram, n_components=4, sort=True)[1].astype(np.float32)
         self.onset_env = librosa.onset.onset_strength(
             y=self.y_perc, sr=self.sr, hop_length=self.hop_length)
         self.tempogram = np.clip(librosa.feature.tempogram(
@@ -166,12 +169,15 @@ class AudioFeature:
         self.tempogram_acts = librosa.decompose.decompose(
             self.tempogram, n_components=3, sort=True)[1]
         self.mfccs = librosa.feature.mfcc(
-            y=self.y, sr=self.sr, n_mfcc=13, hop_length=self.hop_length)
+            y=self.y, sr=self.sr, n_mfcc=20, hop_length=self.hop_length)
+        self.mfccs += abs(np.min(self.mfccs))
+        self.mfcc_acts = librosa.decompose.decompose(
+            self.mfccs, n_components=4, sort=True)[1].astype(np.float32)
 
-        features = [self.rms, self.mel_acts, self.chromagram, self.chroma_acts,
-                    self.tempogram_acts, self.mfccs]
-        feature_names = ['rms', 'mel_acts', 'chromagram',
-                         'chroma_acts', 'tempogram_acts', 'mfccs']
+        features = [self.rms, self.mel_acts, self.chroma_acts,
+                    self.tempogram_acts, self.mfcc_acts]
+        feature_names = ['rms', 'mel_acts', 'chroma_acts',
+                         'tempogram_acts', 'mfcc_acts']
         dims = {name: feature.shape[0]
                 for feature, name in zip(features, feature_names)}
         total_inv_dim = sum(1 / dim for dim in dims.values())
@@ -180,7 +186,8 @@ class AudioFeature:
         std_weighted_features = [StandardScaler().fit_transform(feature.T).T * weights[name]
                                  for feature, name in zip(features, feature_names)]
         self.combined_features = np.concatenate(
-            std_weighted_features, axis=0).T
+            std_weighted_features, axis=0).T.astype(np.float32)
+        self.n_frames = len(self.combined_features)
 
     def create_meter_grid(self):
         """Create a grid based on the meter of the song, using tempo and beats."""
@@ -188,30 +195,55 @@ class AudioFeature:
             onset_envelope=self.onset_env, sr=self.sr, hop_length=self.hop_length)
         self.tempo = self.tempo * 2 if self.tempo < 70 else self.tempo / \
             2 if self.tempo > 140 else self.tempo
-        self.meter_grid = self._create_meter_grid(
-            frame_duration=len(self.onset_env))
+        self.meter_grid = self._create_meter_grid()
         return self.meter_grid
 
-    def _create_meter_grid(self, frame_duration: int) -> np.ndarray:
+    def _create_meter_grid(self) -> np.ndarray:
         """
-        Helper function to create a meter grid for the song.
-
-        Parameters:
-        - frame_duration (int): The duration of the song in frame units.
+        Helper function to create a meter grid for the song, extrapolating both forwards and backwards from an anchor frame.
 
         Returns:
         - np.ndarray: The meter grid.
         """
+        seconds_per_beat = 60 / self.tempo
         beat_interval = int(librosa.time_to_frames(
-            60 / self.tempo, sr=self.sr, hop_length=self.hop_length))
+            seconds_per_beat, sr=self.sr, hop_length=self.hop_length))
+
+        # Find the best matching start beat based on the tempo and existing beats
         best_match_start = max((1 - abs(np.mean(self.beats[i:i+3]) - beat_interval) / beat_interval, self.beats[i])
                                for i in range(len(self.beats) - 2))[1]
         anchor_frame = best_match_start if best_match_start > 0.95 else self.beats[0]
-        beat_grid = np.arange(anchor_frame, -beat_interval, -beat_interval)
-        beat_grid = beat_grid[beat_grid >= 0]
-        meter_grid = np.arange(
-            beat_grid[0], frame_duration + 1, beat_interval * self.time_signature)
-        return np.unique(np.concatenate((meter_grid, [0, frame_duration])))
+        first_beat_time = librosa.frames_to_time(
+            anchor_frame, sr=self.sr, hop_length=self.hop_length)
+
+        # Calculate the number of beats forward and backward
+        time_duration = librosa.frames_to_time(
+            self.n_frames, sr=self.sr, hop_length=self.hop_length)
+        num_beats_forward = int(
+            (time_duration - first_beat_time) / seconds_per_beat)
+        num_beats_backward = int(first_beat_time / seconds_per_beat) + 1
+
+        # Create beat times forward and backward
+        beat_times_forward = first_beat_time + \
+            np.arange(num_beats_forward) * seconds_per_beat
+        beat_times_backward = first_beat_time - \
+            np.arange(1, num_beats_backward) * seconds_per_beat
+
+        # Combine and sort the beat times
+        beat_grid = np.concatenate(
+            (np.array([0.0]), beat_times_backward[::-1], beat_times_forward))
+        meter_indices = np.arange(0, len(beat_grid), self.time_signature)
+        meter_grid = beat_grid[meter_indices]
+
+        # Ensure the meter grid starts at 0 and ends at frame_duration
+        if meter_grid[0] != 0.0:
+            meter_grid = np.insert(meter_grid, 0, 0.0)
+        meter_grid = librosa.time_to_frames(
+            meter_grid, sr=self.sr, hop_length=self.hop_length)
+        if meter_grid[-1] != self.n_frames:
+            meter_grid = np.append(meter_grid, self.n_frames)
+
+        return meter_grid
 
 
 def segment_data_meters(data: np.ndarray, meter_grid: List[int]) -> List[np.ndarray]:
@@ -225,7 +257,10 @@ def segment_data_meters(data: np.ndarray, meter_grid: List[int]) -> List[np.ndar
     Returns:
     - List[np.ndarray]: A list of song data segments.
     """
-    return [data[s:e] for s, e in zip(meter_grid[:-1], meter_grid[1:])]
+    meter_segments = [data[s:e]
+                      for s, e in zip(meter_grid[:-1], meter_grid[1:])]
+    meter_segments = [segment.astype(np.float32) for segment in meter_segments]
+    return meter_segments
 
 
 def positional_encoding(position: int, d_model: int) -> np.ndarray:
@@ -392,6 +427,52 @@ def smooth_predictions(data: np.ndarray) -> np.ndarray:
     return smoothed_data
 
 
+def make_predictions(model, processed_audio, audio_features, url, video_name):
+    """
+    Generate predictions from the model and process them to binary and smoothed predictions.
+
+    Parameters:
+    - model: The loaded model for making predictions.
+    - processed_audio: The audio data that has been processed for prediction.
+    - audio_features: Audio features object containing necessary metadata like meter grid.
+    - url (str): YouTube URL of the audio file.
+    - video_name (str): Name of the video.
+
+    Returns:
+    - np.ndarray: The smoothed binary predictions.
+    """
+    predictions = model.predict(processed_audio)[0]
+    binary_predictions = np.round(
+        predictions[:(len(audio_features.meter_grid) - 1)]).flatten()
+    smoothed_predictions = smooth_predictions(binary_predictions)
+
+    meter_grid_times = librosa.frames_to_time(
+        audio_features.meter_grid, sr=audio_features.sr, hop_length=audio_features.hop_length)
+    chorus_start_times = [meter_grid_times[i] for i in range(len(
+        smoothed_predictions)) if smoothed_predictions[i] == 1 and (i == 0 or smoothed_predictions[i - 1] == 0)]
+
+    youtube_links = [
+        f"{url}&t={int(start_time)}s" for start_time in chorus_start_times]
+    max_length = max([len(link) for link in youtube_links] + [len(video_name), len(
+        f"Number of choruses identified: {len(chorus_start_times)}")] if chorus_start_times else [0])
+
+    print()
+    print()
+    print(f"{video_name.center(max_length + 2)}")
+    print(f"Number of choruses identified: {len(chorus_start_times)}".center(
+        max_length + 4))
+    header_footer = "=" * (max_length + 4)
+    print(header_footer)
+    for link in youtube_links:
+        print(f"|| {link.center(max_length + 2)} ||")
+    print(header_footer)
+
+    if len(chorus_start_times) == 0:
+        print("No choruses identified.")
+
+    return smoothed_predictions
+
+
 def plot_meter_lines(ax: plt.Axes, meter_grid_times: np.ndarray) -> None:
     """
     Draw meter grid lines on the plot.
@@ -405,23 +486,23 @@ def plot_meter_lines(ax: plt.Axes, meter_grid_times: np.ndarray) -> None:
                    linewidth=1, alpha=0.6)
 
 
-def plot_predictions(audio_features, binary_predictions, plot_save_path):
+def plot_predictions(audio_features, binary_predictions):
     """
     Plot the audio waveform and overlay the predicted chorus locations.
 
     Parameters:
     - audio_features: An object containing audio features including meter grid, harmonic and percussive components.
     - binary_predictions (np.ndarray): Array of binary predictions indicating chorus (1) and non-chorus (0) segments.
-    - plot_save_path (str): Path to the directory where the plot should be saved.
     """
     meter_grid_times = librosa.frames_to_time(
         audio_features.meter_grid, sr=audio_features.sr, hop_length=audio_features.hop_length)
     fig, ax = plt.subplots(figsize=(12.5, 3), dpi=96)
 
+    # Display harmonic and percussive components without adding them to the legend
     librosa.display.waveshow(audio_features.y_harm, sr=audio_features.sr,
-                             alpha=0.9, ax=ax, label='Harmonic', color='b')
+                             alpha=0.8, ax=ax, color='deepskyblue')
     librosa.display.waveshow(audio_features.y_perc, sr=audio_features.sr,
-                             alpha=0.4, ax=ax, label='Percussive', color='r')
+                             alpha=0.7, ax=ax, color='plum')
     plot_meter_lines(ax, meter_grid_times)
 
     for i, prediction in enumerate(binary_predictions):
@@ -431,8 +512,6 @@ def plot_predictions(audio_features, binary_predictions, plot_save_path):
         if prediction == 1:
             ax.axvspan(start_time, end_time, color='green', alpha=0.3,
                        label='Predicted Chorus' if i == 0 else None)
-        else:
-            ax.axvspan(start_time, end_time, color='white', alpha=0.3)
 
     ax.set_xlim([0, len(audio_features.y) / audio_features.sr])
     ax.set_ylabel('Amplitude')
@@ -455,62 +534,10 @@ def plot_predictions(audio_features, binary_predictions, plot_save_path):
     ax.set_xticklabels(xlabels)
 
     plt.tight_layout()
-
-    audio_file_name = os.path.basename(audio_features.audio_path)
-    output_plot_path = os.path.join(
-        plot_save_path, os.path.splitext(audio_file_name)[0] + "_plot.png")
-    plt.savefig(output_plot_path)
-
-    plt.show()
+    plt.show(block=False)
 
 
-def predictions_to_csv(song_title, data_save_path, binary_predictions, smoothed_predictions, audio_features, url: str):
-    """
-    Save the predictions and YouTube links to a CSV file.
-    Also print the number of choruses identified and the YouTube links with chorus timestamps.
-
-    Parameters:
-    - song_title (str): The title of the song.
-    - data_save_path (str): Path to the directory where the CSV file should be saved.
-    - binary_predictions (np.ndarray): Array of binary predictions.
-    - smoothed_predictions (np.ndarray): Array of smoothed binary predictions.
-    - audio_features: An object containing audio features including meter grid.
-    - url (str): YouTube URL of the audio file.
-    """
-    meter_grid_times = librosa.frames_to_time(
-        audio_features.meter_grid, sr=audio_features.sr, hop_length=audio_features.hop_length)
-
-    chorus_start_times = []
-    for i in range(len(smoothed_predictions)):
-        if smoothed_predictions[i] == 1 and (i == 0 or smoothed_predictions[i - 1] == 0):
-            chorus_start_times.append(meter_grid_times[i])
-
-    num_choruses = len(chorus_start_times)
-    youtube_links = [
-        f"{url}&t={int(start_time)}" for start_time in chorus_start_times]
-
-    data = {
-        'filename': [song_title] * num_choruses,
-        'binary_predictions': [binary_predictions.tolist()] * num_choruses,
-        'smoothed_predictions': [smoothed_predictions.tolist()] * num_choruses,
-        'num_choruses': [num_choruses] * num_choruses,
-        'youtube_link': youtube_links
-    }
-
-    df = pd.DataFrame(data)
-
-    # Remove invalid characters from the song title
-    valid_filename = re.sub(r'[\\/*?:"<>|]', '', song_title) + ".csv"
-    csv_file_path = os.path.join(data_save_path, valid_filename)
-    df.to_csv(csv_file_path, index=False)
-
-    # Print the number of choruses identified and the YouTube links with chorus timestamps
-    print(f"{num_choruses} choruses identified for '{song_title}':")
-    for link in youtube_links:
-        print(link)
-
-
-def main(url: str, model_path: str, verbose: bool, output_plot: str = None):
+def main(url: str, model_path: str, verbose: bool, plot: bool = True):
     """
     Downloads audio, processes it, predicts chorus locations, and visualizes results.
 
@@ -518,59 +545,59 @@ def main(url: str, model_path: str, verbose: bool, output_plot: str = None):
     - url (str): YouTube URL of the audio file.
     - model_path (str): Path to the pretrained model.
     - verbose (bool): If True, print detailed logs during the process.
-    - output_plot (str, optional): Path to save the plot. If None, the plot is saved to 'output/plots' by default.
+    - plot (bool, optional): Whether to display the plot.
     """
-    audio_save_path = "output/audio_files"
-    data_save_path = "output/data"
-    plot_save_path = "output/plots"
+    while True:
+        if verbose:
+            print("Extracting audio...")
+        audio_path, video_name = extract_audio(url)
+        if not audio_path:
+            print("Failed to extract audio from the provided URL.")
+            return
 
-    # Ensure the directories exist
-    os.makedirs(audio_save_path, exist_ok=True)
-    os.makedirs(data_save_path, exist_ok=True)
-    os.makedirs(plot_save_path, exist_ok=True)
+        if verbose:
+            print("Processing audio...")
+        processed_audio, audio_features = process_audio(audio_path)
 
-    if verbose:
-        print("Downloading audio...")
+        if verbose:
+            print("Loading model...")
+        model = load_CRNN_model(model_path=model_path)
 
-    audio_path = download_audio(url)
-    if not audio_path:
-        print("Failed to download audio from the provided URL.")
-        return
+        if verbose:
+            print("Making predictions...")
+        smoothed_predictions = make_predictions(
+            model, processed_audio, audio_features, url, video_name)
 
-    # Extract the song title from the audio file path or URL
-    song_title = os.path.splitext(os.path.basename(audio_path))[0]
+        if plot:
+            print("Displaying plot...")
+            plot_predictions(audio_features, smoothed_predictions)
 
-    if verbose:
-        print("Processing audio...")
-    processed_audio, audio_features = process_audio(audio_path)
+        # Clear temporary files
+        if os.path.exists(AUDIO_TEMP_PATH):
+            shutil.rmtree(AUDIO_TEMP_PATH)
 
-    if verbose:
-        print("Loading model...")
-    model = load_CRNN_model(model_path=model_path)
-    predictions = model.predict(processed_audio)[0]
-    binary_predictions = np.round(
-        predictions[:(len(audio_features.meter_grid) - 1)]).flatten()
-    smoothed_predictions = smooth_predictions(binary_predictions)
-
-    if verbose:
-        print("Saving predictions to CSV...")
-    predictions_to_csv(song_title, data_save_path, binary_predictions,
-                       smoothed_predictions, audio_features, url)
-
-    if verbose:
-        print("Plotting predictions...")
-    plot_predictions(audio_features, smoothed_predictions, plot_save_path)
+        # Prompt for another video
+        url = input(
+            "Would you like to analyze another song? If so please enter the YouTube URL here or type 'exit' to quit: ")
+        if url.lower() == 'exit':
+            break
 
 
 if __name__ == "__main__":
+    import argparse
     parser = argparse.ArgumentParser(description="Chorus Finder")
-    parser.add_argument("url", type=str, help="YouTube URL of the audio file")
-    parser.add_argument("--model_path", type=str, default="models/CRNN/best_model.h5",
-                        help="Path to the pretrained model (default: models/CRNN/best_model.h5)")
+    parser.add_argument("--url", type=str,
+                        help="YouTube URL of a song (optional)")
+    parser.add_argument("--model_path", type=str, default="../models/CRNN/best_model_V3.h5",
+                        help="Path to the pretrained model (default: ../models/CRNN/best_model_V3.h5)")
     parser.add_argument("--verbose", action="store_true",
-                        help="Print detailed logs during the process (default: True)", default=True)
-    parser.add_argument("--output_plot", type=str, help="Path to save the plot",
-                        default="output/plots")
+                        help="Verbose output", default=True)
+    parser.add_argument("--plot", action="store_true",
+                        help="Display plot of the audio waveform", default=True)
     args = parser.parse_args()
 
-    main(args.url, args.model_path, args.verbose, args.output_plot)
+    if args.url:
+        main(args.url, args.model_path, args.verbose, args.plot)
+    else:
+        url = input("Please enter the YouTube URL of the song: ")
+        main(url, args.model_path, args.verbose, args.plot)
