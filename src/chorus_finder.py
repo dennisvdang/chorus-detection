@@ -33,7 +33,7 @@ HOP_LENGTH = 128
 MAX_FRAMES = 300
 MAX_METERS = 201
 N_FEATURES = 15
-MODEL_PATH = "../models/CRNN/best_model_V3.h5"
+MODEL_PATH = "models/CRNN/best_model_V3.h5"
 AUDIO_TEMP_PATH = "output/temp"
 
 
@@ -452,19 +452,20 @@ def make_predictions(model, processed_audio, audio_features, url, video_name):
         smoothed_predictions)) if smoothed_predictions[i] == 1 and (i == 0 or smoothed_predictions[i - 1] == 0)]
 
     youtube_links = [
-        f"{url}&t={int(start_time)}s" for start_time in chorus_start_times]
+        f"\033]8;;{url}&t={int(start_time)}s\033\\{url}&t={int(start_time)}s\033]8;;\033\\" for start_time in chorus_start_times
+    ]
     max_length = max([len(link) for link in youtube_links] + [len(video_name), len(
         f"Number of choruses identified: {len(chorus_start_times)}")] if chorus_start_times else [0])
-
+    header_footer = "=" * (max_length + 4)
     print()
     print()
+    print(header_footer)
     print(f"{video_name.center(max_length + 2)}")
     print(f"Number of choruses identified: {len(chorus_start_times)}".center(
         max_length + 4))
-    header_footer = "=" * (max_length + 4)
     print(header_footer)
     for link in youtube_links:
-        print(f"|| {link.center(max_length + 2)} ||")
+        print(link)
     print(header_footer)
 
     if len(chorus_start_times) == 0:
@@ -588,8 +589,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Chorus Finder")
     parser.add_argument("--url", type=str,
                         help="YouTube URL of a song (optional)")
-    parser.add_argument("--model_path", type=str, default="../models/CRNN/best_model_V3.h5",
-                        help="Path to the pretrained model (default: ../models/CRNN/best_model_V3.h5)")
+    parser.add_argument("--model_path", type=str, default="models/CRNN/best_model_V3.h5",
+                        help="Path to the pretrained model (default: models/CRNN/best_model_V3.h5)")
     parser.add_argument("--verbose", action="store_true",
                         help="Verbose output", default=True)
     parser.add_argument("--plot", action="store_true",

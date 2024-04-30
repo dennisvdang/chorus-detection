@@ -121,50 +121,23 @@ cd chorus-detection
 
 ### Step 2: Environment Setup
 
-#### Using virtualenv:
+#### Setting up a virtual environment
 
 ```bash
 pip install virtualenv
 virtualenv venv
-# Windows
-venv\Scripts\activate
-# MacOS/Linux
-source venv/bin/activate
+venv\Scripts\activate # for MacOS/Linux use 'source venv/bin/activate'
+pip install -r requirements.txt
 ```
 
-#### Using conda:
+#### Setup with conda
 
 ```bash
 conda create --name myenv python=3.8
 conda activate myenv
 ```
 
-### Step 3: Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### Step 4: Install FFmpeg
-
-#### Windows:
-
-- Download from https://ffmpeg.org/download.html, extract, and add to PATH.
-
-#### MacOS:
-
-```bash
-brew install ffmpeg
-```
-
-#### Linux:
-
-```bash
-sudo apt update
-sudo apt install ffmpeg
-```
-
-### Step 5: Run the Script
+### Step 3: Run the Script
 
 ```bash
 python src/chorus_finder.py --url "https://www.youtube.com/watch?v=example"
@@ -191,25 +164,7 @@ make setup
 
 This command will create a virtual environment, activate it, and install the dependencies listed in `requirements.txt`.
 
-### Step 3: Install FFmpeg
-
-FFmpeg is required for handling audio processing. Install it according to your operating system:
-
-#### Windows:
-- Download from https://ffmpeg.org/download.html, extract, and add to PATH.
-
-#### MacOS:
-```bash
-brew install ffmpeg
-```
-
-#### Linux:
-```bash
-sudo apt update
-sudo apt install ffmpeg
-```
-
-### Step 4: Run the Script
+### Step 3: Run the Script
 
 To run the `chorus_finder.py` script using the `Makefile`, use the following command, replacing `"https://www.youtube.com/watch?v=example"` with the actual YouTube URL:
 
@@ -218,8 +173,6 @@ make run URL="https://www.youtube.com/watch?v=example"
 ```
 
 This command will execute the script with the specified URL.
-
-### Step 5: Clean Up
 
 To clean up the environment and remove temporary files, you can use:
 
