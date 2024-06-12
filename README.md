@@ -34,6 +34,8 @@ Below, you'll find information on where to locate specific files and their purpo
 - **Models:**
   - [`models/CRNN/best_model_V3.h5`](models/CRNN/best_model_V3.h5): The best performing CRNN model trained on the annotated dataset, ready for inference.
 
+## Project Technical Summary
+
 ### Data
 
 The dataset consists of 332 manually labeled songs, predominantly from electronic music genres. Key steps in data preparation included:
@@ -41,8 +43,6 @@ The dataset consists of 332 manually labeled songs, predominantly from electroni
 1. **Audio preprocessing**: Formatting songs uniformly, processing at a consistent sampling rate, trimming silence, and extracting metadata using Spotify's API.[See Jupyter Notebook](notebooks/Preprocessing.ipynb)
 
 2. **Manual Chorus Labeling**: Labeling the start and end timestamps of choruses following a set of guidelines. More details on the annotation process can be found in the [Mixin Annotation Guide](docs/Mixin%20Data%20Annotation%20Guide.pdf)
-
-## Methodology
 
 ### Model Preprocessing
 
@@ -104,7 +104,7 @@ def create_crnn_model(max_frames_per_meter, max_meters, n_features):
 - Trained for 50 epochs (stopped early after 18 epochs). Training/Validation Loss and Accuracy plotted below:
 ![Training History](images/training_history.png)
 
-## Results
+### Results
 
 The model achieved strong results on the held-out test set as shown in the summary table. Visualizations of the predictions on sample test songs are also provided and can be found in the [test_predictions folder](images/test_predictions).
 
