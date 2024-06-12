@@ -1,46 +1,73 @@
-![Chorus Prediction](./images/185.webp)
-
 # Automated Chorus Detection
+
+![Chorus Prediction](./images/185.webp)
 
 ## Project Overview
 
-A Convolutional Recurrent Neural Network (CRNN) trained on 332 annotated songs is used to make binary predictions of whether a meter in a song belongs to a chorus or not, achieving an F1 score of 0.876 (Precision: 0.884, Recall: 0.869) on an unseen testset of 50 songs. This repository contains various Python notebooks, scripts, and resources that support the end-to-end data science process for chorus detection, including data collection, exploratory data analysis, digital signal processing techniques, and modeling. Additionally, it includes a user-friendly command-line tool that leverages the audio processing pipeline and pre-trained CRNN model to predict chorus locations in songs from YouTube links.
+This project focuses on developing an automated system for detecting choruses in songs using a Convolutional Recurrent Neural Network (CRNN). The model is trained on a custom dataset of 332 annotated songs, predominantly from electronic music genres, and achieved an impressive F1 score of 0.876 (Precision: 0.884, Recall: 0.869) on an unseen test set of 50 songs (albeit from similar genres it was trained on). This repository contains various Python notebooks, scripts, and resources to support the entire data science process, including data collection, exploratory data analysis, digital signal processing techniques, and modeling. Additionally, it features a user-friendly command-line tool that leverages the audio processing pipeline and pre-trained CRNN model to predict chorus locations in songs from YouTube links.
+
+### Future Plans
+
+I have plans to develop a streamlined pipeline for contributors to preprocess and label their own music data to either train their own custom models or add to the existing dataset to hopefully improve the model's generalizability across various music genres.
+
+## Project Resources
+
+Below, you'll find information on where to locate specific files and their purposes:
+
+- **Command-line Tool Setup:**
+  - [`src/chorus_finder.py`](src/chorus_finder.py): A command-line tool that leverages the audio processing pipeline and pre-trained CRNN model to predict chorus locations in songs from YouTube links. For setup and usage instructions, refer to the [Setup and Running the CLI](#setup-and-running-the-cli) section.
+
+- **Labeled Dataset:**
+  - [`data/clean_labeled.csv`](data/clean_labeled.csv): The labeled dataset used to train the CRNN.
+
+- **Notebooks:**
+  - [`notebooks/Preprocessing.ipynb`](notebooks/Preprocessing.ipynb): Covers the audio preprocessing steps, including formatting songs uniformly, processing at a consistent sampling rate, trimming silence, and extracting metadata using Spotify's API.
+  - [`notebooks/Mixin_EDA.ipynb`](notebooks/Mixin_EDA.ipynb): Contains preliminary/exploratory analyses such as label quality assurance, feature extraction methods, and audio feature visualizations.
+  - [`notebooks/Automated-Chorus-Detection.ipynb`](notebooks/Automated-Chorus-Detection.ipynb): Includes the code for the audio signal processing pipeline, CRNN model architecture, training, testing, and prediction visualizations.
+
+- **Documentation:**
+  - [`docs/Automate_Chorus_Detection.pptx`](docs/Automate_Chorus_Detection.pptx): A PowerPoint presentation providing a high-level overview of the project, its purpose, and how it works.
+  - [`docs/capstone_final_report.pdf`](docs/capstone_final_report.pdf): The final project write-up, detailing the project overview, methodology, results, and recommendations for future work.
+  - [`docs/Mixin%20Data%20Annotation%20Guide.pdf`](docs/Mixin%20Data%20Annotation%20Guide.pdf): A guide detailing the manual annotation process for labeling choruses in songs.
+  - [`docs/model_metrics.csv`](docs/model_metrics.csv): csv file summarizing key performance metrics of the CRNN model.
+
+- **Models:**
+  - [`models/CRNN/best_model_V3.h5`](models/CRNN/best_model_V3.h5): The best performing CRNN model trained on the annotated dataset, ready for inference.
 
 ### Data
 
-The dataset consists of 332 manually labeled songs, predominantly from electronic music genres. The data wrangling steps included:
+The dataset consists of 332 manually labeled songs, predominantly from electronic music genres. Key steps in data preparation included:
 
-- **Audio preprocessing** - formatting songs uniformly, processing at consistent sampling rate, trimming silence, extracting metadata using Spotify's API. [See Jupyter Notebook](notebooks/Preprocessing.ipynb)
-- **Manual chorus labeling** - label start/end timestamp of choruses, skipping ambiguous songs. More details on the annotation process can be found in the [Mixin Annotation Guide](docs/Mixin%20Data%20Annotation%20Guide.pdf)
+1. **Audio preprocessing**: Formatting songs uniformly, processing at a consistent sampling rate, trimming silence, and extracting metadata using Spotify's API.[See Jupyter Notebook](notebooks/Preprocessing.ipynb)
 
-### Exploratory Data Analysis
+2. **Manual Chorus Labeling**: Labeling the start and end timestamps of choruses following a set of guidelines. More details on the annotation process can be found in the [Mixin Annotation Guide](docs/Mixin%20Data%20Annotation%20Guide.pdf)
 
-The EDA aimed to uncover insights and patterns to inform model development. First, we examined the distribution of chorus labels across out dataset and how choruses might differ from non-choruses. Audio features pertaining to the spectral, rhythmic, tonal, and energy properties of music were extracted, quantified, and visualized to better understand the characteristics of music that are relevant to the task of chorus detection. Below are examples of audio feature visualizations of a song with 3 choruses (highlighted in green).
+## Methodology
+
+### Model Preprocessing
+
+- **Feature Extraction**: Features such as Root Mean Squared energy, key-invariant chromagrams, Melspectrograms, MFCCs, and tempograms were extracted. These features were decomposed using Non-negative Matrix Factorization using an optimal number of components derived in our exploratory analysis.
+
+- **Segmentation and Encoding**: Songs were segmented into timesteps based on musical meters, with positional encoding applied to every meter and frame. Songs and labels were uniformly padded and split into train/validation/test sets, processed into batch sizes of 32 using a custom generator.
+
+- **Padding**: Songs and labels were padded to ensure consistent input lengths for the convolutional layers.
+
+- Data is split into train/validation/test (70/15/15) sets and processed into batch sizes of 32 using a custom generator.
+
+Below are examples of audio feature visualizations of a song with 3 choruses (highlighted in green). The gridlines represent the musical meters, which are used to divide the song into segments; these segments then serve as the timesteps for the CRNN input.
 
 ![hspss](./images/hpss.png)
 ![rms_beat_synced](./images/rms_beat_synced.png)
 ![chromagram](./images/chromagram_stacked.png)
 ![tempogram](./images/tempogram.png)
 
-More details on the EDA process can be found in the following notebooks:  
-
-- [EDA Part 1](notebooks/Mixin_EDA.ipynb): Label distribution, label validity, A/B testing of feature extraction methods, audio feature visualization
-- [EDA Part 2](notebooks/EDA_V2.ipynb): Finding optimal number of components for decomposing audio features, quantifying audio features and comparing between chorus vs. non-chorus
-
-### Model Preprocessing
-
-- Extracted features include Root Mean Squared energy, key-invariant chromagrams, Melspectrograms, MFCCs, and tempograms. The latter four features are decomposed using Non-negative Matrix Factorization with their optimal number of components derived during EDA.
-- Songs are segmented into timesteps based on musical meters (computed using tempo and time-signature). This introduces an inductive bias to help the CRNN learn more relevant features and patterns.
-- Positional encoding is applied to every meter in a song and every audio frame in a meter. 
-- Songs and labels are uniformly padded and split into train/validation/test sets. Data is processed into batch sizes of 32 using a custom generator. 
-
 ### Modeling
 
-The CRNN model consists of:
+The CRNN model architecture includes:
 
-- Three 1D convolutional layers with ReLU and max-pooling to extract local patterns
-- A Bidirectional LSTM layer to model long-range temporal dependencies
-- A TimeDistributed Dense output layer with sigmoid activation for meter-wise predictions
+- **1D Convolutional Layers**: Three 1D convolutional layers with ReLU and max-pooling to extract local patterns.
+- **Bidirectional LSTM Layer**: A Bidirectional LSTM layer to model long-range temporal dependencies.
+- **TimeDistributed Dense Layer**: A TimeDistributed Dense output layer with sigmoid activation for meter-wise predictions.
 
 ``` python
 def create_crnn_model(max_frames_per_meter, max_meters, n_features):
@@ -75,7 +102,7 @@ def create_crnn_model(max_frames_per_meter, max_meters, n_features):
 - Custom loss and accuracy functions handle padded values
 - Callbacks to save best model based on minimal validation loss, reduce learning rate on plateau, and early stopping
 - Trained for 50 epochs (stopped early after 18 epochs). Training/Validation Loss and Accuracy plotted below:
-![Training History](./images/training_history_model.png)
+![Training History](images/training_history.png)
 
 ## Results
 
@@ -90,23 +117,6 @@ The model achieved strong results on the held-out test set as shown in the summa
 | F1 Score       | 0.864  |
 
 ![Confusion Matrix](./images/confusion_matrix.png)
-
-## Limitations, Implications, and Future Directions
-
-While the model demonstrates promising results, it's important to note limitations such as its potential biases towards the predominantly electronic music genre in the dataset. Future work could explore the application of semi-supervised learning techniques to leverage unlabeled data, expand the dataset to include a wider variety of genres, and explore alternative architectures or attention mechanisms that could further enhance model performance, generalizeability, and interpretability. More empirical testing is needed to determine whether the hierarchical positional encoding and segmentation techniques are effective.
-
-## Project Documentation and Resources
-
-- **Final Project Write-up**: For a more in-depth analysis, see the [Final Project Write-up](docs/Capstone_Final_Report.pdf).
-
-- **Data Annotation**: Details on the manual song labeling process are in the [Mixin Data Annotation Guide](docs/Mixin%20Data%20Annotation%20Guide.pdf).
-
-- **Model Metrics**: Key performance metrics for the CRNN model are summarized in the [model_metrics.csv](docs/model_metrics.csv).
-
-- **Notebooks**:
-  - [Preprocessing](notebooks/Preprocessing.ipynb): Audio formatting, trimming, metadata extraction
-  - [EDA](notebooks/Mixin_EDA.ipynb): Exploratory analysis and visualizations of audio features
-  - [Modeling](notebooks/Automated-Chorus-Detection-V2.ipynb): CRNN model preprocessing, architecture, training, evaluation
 
 ## Setup and Running the CLI
 

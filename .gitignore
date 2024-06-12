@@ -3,3 +3,5 @@ venv/
 *.pkl
 src/chorus_finder_V2.py
 models/CRNN/best_model_V2.h5
+
+data/clean_labeled_with_tracknames.csv
