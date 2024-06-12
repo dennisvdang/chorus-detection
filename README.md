@@ -6,6 +6,8 @@
 
 This project focuses on developing an automated system for detecting choruses in songs using a Convolutional Recurrent Neural Network (CRNN). The model is trained on a custom dataset of 332 annotated songs, predominantly from electronic music genres, and achieved an impressive F1 score of 0.876 (Precision: 0.884, Recall: 0.869) on an unseen test set of 50 songs (albeit from similar genres it was trained on). This repository contains various Python notebooks, scripts, and resources to support the entire data science process, including data collection, exploratory data analysis, digital signal processing techniques, and modeling. Additionally, it features a [user-friendly command-line tool](#setup-and-running-the-cli) that integrates the audio processing pipeline and pre-trained CRNN model to predict chorus locations in songs from YouTube links.
 
+If you found this project interesting or informative, feel free to ⭐ star the repository! I welcome any questions, criticisms, or issues you may have. Additionally, if you have any ideas for collaboration, don't hesitate to connect with me. Your feedback and contributions are greatly appreciated!
+
 ### Future Plans
 
 I have plans to develop a streamlined pipeline for contributors to preprocess and label their own music data to either train their own custom models or add to the existing dataset to hopefully improve the model's generalizability across various music genres.
@@ -131,7 +133,7 @@ cd chorus-detection
 
 ### Step 2: Environment Setup
 
-#### Setting up a virtual environment
+Setup with virtualenv:
 
 ```bash
 pip install virtualenv
@@ -140,7 +142,7 @@ venv\Scripts\activate # for MacOS/Linux use 'source venv/bin/activate'
 pip install -r requirements.txt
 ```
 
-#### Setup with conda
+or with conda:
 
 ```bash
 conda create --name myenv python=3.8
