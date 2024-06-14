@@ -31,7 +31,6 @@ Below, you'll find information on where to locate specific files and their purpo
   - [`docs/Automate_Chorus_Detection.pptx`](docs/Automate_Chorus_Detection.pptx): A PowerPoint presentation providing a high-level overview of the project, its purpose, and how it works.
   - [`docs/capstone_final_report.pdf`](docs/capstone_final_report.pdf): The final project write-up, detailing the project overview, methodology, results, and recommendations for future work.
   - [`docs/Mixin%20Data%20Annotation%20Guide.pdf`](docs/Mixin%20Data%20Annotation%20Guide.pdf): A guide detailing the manual annotation process for labeling choruses in songs.
-  - [`docs/model_metrics.csv`](docs/model_metrics.csv): csv file summarizing key performance metrics of the CRNN model.
 
 - **Models:**
   - [`models/CRNN/best_model_V3.h5`](models/CRNN/best_model_V3.h5): The best performing CRNN model trained on the annotated dataset, ready for inference.
@@ -40,7 +39,7 @@ Below, you'll find information on where to locate specific files and their purpo
 
 ### Data
 
-The dataset consists of 332 manually labeled songs, predominantly from electronic music genres. Key steps in data preparation included:
+The dataset consists of 332 manually labeled songs, predominantly from electronic music genres. Data preparation involved:
 
 1. **Audio preprocessing**: Formatting songs uniformly, processing at a consistent sampling rate, trimming silence, and extracting metadata using Spotify's API. [Link to preprocessing notebook](notebooks/Preprocessing.ipynb)
 
