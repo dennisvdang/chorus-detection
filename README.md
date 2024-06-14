@@ -16,23 +16,14 @@ I have plans to develop a streamlined pipeline for contributors to preprocess an
 
 Below, you'll find information on where to locate specific files and their purposes:
 
-- **Command-line Tool Setup:**
-  - [`src/chorus_finder.py`](src/chorus_finder.py): A command-line tool that leverages the audio processing pipeline and pre-trained CRNN model to predict chorus locations in songs from YouTube links. For setup and usage instructions, refer to the [Setup and Running the CLI](#setup-and-running-the-cli) section.
-
-- **Labeled Dataset:**
-  - [`data/clean_labeled.csv`](data/clean_labeled.csv): The labeled dataset used to train the CRNN.
-
-- **Notebooks:**
-  - [`notebooks/Automated-Chorus-Detection.ipynb`](notebooks/Automated-Chorus-Detection.ipynb): Main development notebook. Includes the code for the audio signal processing pipeline, CRNN model architecture, training, testing, and prediction visualizations.
-  - [`notebooks/Preprocessing.ipynb`](notebooks/Preprocessing.ipynb): Covers the audio preprocessing steps to format songs uniformly, trim audio silences, and extract metadata using Spotify's API.
-  - [`notebooks/Mixin_EDA.ipynb`](notebooks/Mixin_EDA.ipynb): Contains preliminary/exploratory analyses such as label quality assurance, feature extraction methods, and audio feature visualizations.
-
-- **Documentation:**
-  - [`docs/Automated_Chorus_Detection.pptx`](docs/Automated_Chorus_Detection.pptx): A PowerPoint presentation providing a high-level overview of the project, its purpose, and how it works. PDF formatted version is also available.
-  - [`docs/Mixin%20Data%20Annotation%20Guide.pdf`](docs/Mixin%20Data%20Annotation%20Guide.pdf): A guide detailing the manual annotation process for labeling choruses in songs.
-
-- **Models:**
-  - [`models/CRNN/best_model_V3.h5`](models/CRNN/best_model_V3.h5): The best performing CRNN model trained on the annotated dataset, ready for inference.
+- [`src/chorus_finder.py`](src/chorus_finder.py): A command-line tool that leverages the audio processing pipeline and pre-trained CRNN model to predict chorus locations in songs from YouTube links. For setup and usage instructions, refer to the [Setup and Running the CLI](#setup-and-running-the-cli) section.
+- [`data/clean_labeled.csv`](data/clean_labeled.csv): The labeled dataset used to train the CRNN.
+- [`notebooks/Automated-Chorus-Detection.ipynb`](notebooks/Automated-Chorus-Detection.ipynb): Main development notebook. Includes the code for the audio signal processing pipeline, CRNN model architecture, training, testing, and prediction visualizations.
+- [`notebooks/Preprocessing.ipynb`](notebooks/Preprocessing.ipynb): Covers the audio preprocessing steps to format songs uniformly, trim audio silences, and extract metadata using Spotify's API.
+- [`notebooks/Mixin_EDA.ipynb`](notebooks/Mixin_EDA.ipynb): Contains preliminary/exploratory analyses such as label quality assurance, feature extraction methods, and audio feature visualizations.
+- [`docs/Automated_Chorus_Detection.pptx`](docs/Automated_Chorus_Detection.pptx): A PowerPoint presentation providing a high-level overview of the project, its purpose, and how it works. PDF formatted version is also available.
+- [`docs/Mixin%20Data%20Annotation%20Guide.pdf`](docs/Mixin%20Data%20Annotation%20Guide.pdf): A guide detailing the manual annotation process for labeling choruses in songs.
+- [`models/CRNN/best_model_V3.h5`](models/CRNN/best_model_V3.h5): The best performing CRNN model trained on the annotated dataset, ready for inference.
 
 ## Project Technical Summary
 
