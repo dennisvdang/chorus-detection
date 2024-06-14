@@ -23,9 +23,9 @@ Below, you'll find information on where to locate specific files and their purpo
   - [`data/clean_labeled.csv`](data/clean_labeled.csv): The labeled dataset used to train the CRNN.
 
 - **Notebooks:**
-  - [`notebooks/Preprocessing.ipynb`](notebooks/Preprocessing.ipynb): Covers the audio preprocessing steps, including formatting songs uniformly, processing at a consistent sampling rate, trimming silence, and extracting metadata using Spotify's API.
+  - [`notebooks/Automated-Chorus-Detection.ipynb`](notebooks/Automated-Chorus-Detection.ipynb): Main development notebook. Includes the code for the audio signal processing pipeline, CRNN model architecture, training, testing, and prediction visualizations.
+  - [`notebooks/Preprocessing.ipynb`](notebooks/Preprocessing.ipynb): Covers the audio preprocessing steps to format songs uniformly, trim audio silences, and extract metadata using Spotify's API.
   - [`notebooks/Mixin_EDA.ipynb`](notebooks/Mixin_EDA.ipynb): Contains preliminary/exploratory analyses such as label quality assurance, feature extraction methods, and audio feature visualizations.
-  - [`notebooks/Automated-Chorus-Detection.ipynb`](notebooks/Automated-Chorus-Detection.ipynb): Includes the code for the audio signal processing pipeline, CRNN model architecture, training, testing, and prediction visualizations.
 
 - **Documentation:**
   - [`docs/Automate_Chorus_Detection.pptx`](docs/Automate_Chorus_Detection.pptx): A PowerPoint presentation providing a high-level overview of the project, its purpose, and how it works.
@@ -50,7 +50,7 @@ The dataset consists of 332 manually labeled songs, predominantly from electroni
 
 - **Feature Extraction**: Features such as Root Mean Squared energy, key-invariant chromagrams, Melspectrograms, MFCCs, and tempograms were extracted. These features were decomposed using Non-negative Matrix Factorization using an optimal number of components derived in our exploratory analysis.
 
-- **Segmentation and Encoding**: Songs were segmented into timesteps based on musical meters, with positional encoding applied to every meter and frame. Songs and labels were uniformly padded and split into train/validation/test sets, processed into batch sizes of 32 using a custom generator.
+- **Segmentation and Encoding**: Songs were segmented into timesteps based on musical meters, with positional and grid encoding applied to every audio frame and meter, respectively. Songs and labels were uniformly padded and split into train/validation/test sets, processed into batch sizes of 32 using a custom generator.
 
 - **Padding**: Songs and labels were padded to ensure consistent input lengths for the convolutional layers.
 
