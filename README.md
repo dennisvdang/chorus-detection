@@ -28,7 +28,7 @@ Below, you'll find information on where to locate specific files and their purpo
   - [`notebooks/Mixin_EDA.ipynb`](notebooks/Mixin_EDA.ipynb): Contains preliminary/exploratory analyses such as label quality assurance, feature extraction methods, and audio feature visualizations.
 
 - **Documentation:**
-  - [`docs/Automated Chorus Detection.pptx`](docs/Automated Chorus Detection.pptx): A PowerPoint presentation providing a high-level overview of the project, its purpose, and how it works. PDF formatted version is also available.
+  - [`docs/Automated_Chorus_Detection.pptx`](docs/Automated_Chorus_Detection.pptx): A PowerPoint presentation providing a high-level overview of the project, its purpose, and how it works. PDF formatted version is also available.
   - [`docs/Mixin%20Data%20Annotation%20Guide.pdf`](docs/Mixin%20Data%20Annotation%20Guide.pdf): A guide detailing the manual annotation process for labeling choruses in songs.
 
 - **Models:**
