@@ -12,7 +12,7 @@ And if you found this project interesting or informative, feel free to ⭐ star 
 
 ### Future Plans
 
-I have plans to develop a streamlined pipeline for contributors to preprocess and label their own music data to either train their own custom models or add to the existing dataset to hopefully improve the model's generalizability across various music genres.
+I have plans to develop a streamlined pipeline for contributors to preprocess and label their own music data to either train their own custom models or add to the existing dataset to hopefully improve the model's generalizability across various music genres. Stay tuned!
 
 ## Project Resources
 
