@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-This project focuses on developing an automated system for detecting choruses in songs using a Convolutional Recurrent Neural Network (CRNN). The model is trained on a custom dataset of 332 annotated songs, predominantly from electronic music genres, and achieved an impressive F1 score of 0.864 (Precision: 0.831, Recall: 0.900) on an unseen test set of 50 songs (albeit from similar genres it was trained on). This repository contains various Python notebooks, scripts, and resources to support the entire data science process, including data collection, exploratory data analysis, digital signal processing techniques, and modeling. Additionally, it features a [user-friendly command-line tool](#setup-and-running-the-cli) that integrates the audio processing pipeline and pre-trained CRNN model to predict chorus locations in songs from YouTube links.
+This project focuses on developing an automated system for detecting choruses in songs using a Convolutional Recurrent Neural Network (CRNN). The model is trained on a custom dataset of 332 annotated songs, predominantly from electronic music genres, and achieved an impressive F1 score of 0.864 (Precision: 0.831, Recall: 0.900) on an unseen test set of 50 songs (albeit from similar genres it was trained on). This repository contains various Python notebooks, scripts, and resources to support the entire data science process, including data collection, exploratory data analysis, digital signal processing techniques, and modeling. Additionally, it features a [Dockerized command-line tool](#setup-and-running-the-cli-with-docker) that integrates the audio processing pipeline and pre-trained CRNN model to predict chorus locations in songs from YouTube links.
 
 If you found this project interesting or informative, feel free to ⭐ star the repository! I welcome any questions, criticisms, or issues you may have. Additionally, if you have any ideas for collaboration, don't hesitate to connect with me. Your feedback and contributions are greatly appreciated!
 
@@ -16,7 +16,7 @@ I have plans to develop a streamlined pipeline for contributors to preprocess an
 
 Below, you'll find information on where to locate specific files and their purposes:
 
-- [`src/chorus_finder.py`](src/chorus_finder.py): A command-line tool that leverages the audio processing pipeline and pre-trained CRNN model to predict chorus locations in songs from YouTube links. For setup and usage instructions, refer to the [Setup and Running the CLI](#setup-and-running-the-cli) section.
+- [`src/chorus_finder.py`](src/chorus_finder.py): A command-line tool that leverages the audio processing pipeline and pre-trained CRNN model to predict chorus locations in songs from YouTube links. For setup and usage instructions, refer to the [Setup and Running the CLI with Docker](#setup-and-running-the-cli-with-docker) section.
 - [`data/clean_labeled.csv`](data/clean_labeled.csv): The labeled dataset used to train the CRNN.
 - [`notebooks/Automated-Chorus-Detection.ipynb`](notebooks/Automated-Chorus-Detection.ipynb): Main development notebook. Includes the code for the audio signal processing pipeline, CRNN model architecture, training, testing, and prediction visualizations.
 - [`notebooks/Preprocessing.ipynb`](notebooks/Preprocessing.ipynb): Covers the audio preprocessing steps to format songs uniformly, trim audio silences, and extract metadata using Spotify's API.
@@ -109,44 +109,13 @@ The model achieved strong results on the held-out test set as shown in the summa
 
 ![Confusion Matrix](./images/confusion_matrix.png)
 
-## Setup and Running the CLI
+## Setup and Running the CLI with Docker
 
 ![Demo](images/chorus-detection-preview.gif)
 
-### Step 1: Clone the Repository
+### Prerequisites
 
-```bash
-git clone https://github.com/dennisvdang/chorus-detection.git
-cd chorus-detection
-```
-
-### Step 2: Environment Setup
-
-Setup with virtualenv:
-
-```bash
-pip install virtualenv
-virtualenv venv
-venv\Scripts\activate # for MacOS/Linux use 'source venv/bin/activate'
-pip install -r requirements.txt
-```
-
-or with conda:
-
-```bash
-conda create --name myenv python=3.8
-conda activate myenv
-```
-
-### Step 3: Run the Script
-
-```bash
-python src/chorus_finder.py --url "https://www.youtube.com/watch?v=example"
-```
-
-## Setup and Running the CLI Using Makefile
-
-This project includes a `Makefile` to simplify the setup and execution process. Below are the steps to use the `Makefile` to run the CLI.
+- Download and install Docker from the official website - [https://www.docker.com/get-started](https://www.docker.com/get-started)
 
 ### Step 1: Clone the Repository
 
@@ -155,28 +124,25 @@ git clone https://github.com/dennisvdang/chorus-detection.git
 cd chorus-detection
 ```
 
-### Step 2: Setup Environment and Install Dependencies
-
-Run the following command to set up the Python environment and install all necessary dependencies:
+### Step 2: Build the Docker Image
 
 ```bash
-make setup
+docker build -t chorus-finder .
 ```
 
-This command will create a virtual environment, activate it, and install the dependencies listed in `requirements.txt`.
-
-### Step 3: Run the Script
-
-To run the `chorus_finder.py` script using the `Makefile`, use the following command, replacing `"https://www.youtube.com/watch?v=example"` with the actual YouTube URL:
+### Step 3: Run the Docker Container
 
 ```bash
-make run URL="https://www.youtube.com/watch?v=example"
+docker run -it chorus-finder
 ```
 
-This command will execute the script with the specified URL.
+### Additional Arguments
 
-To clean up the environment and remove temporary files, you can use:
+The following options and be appended to the docker run command.
+
+- --verbose: Enable verbose output (default: True) 
+- --plot: Display a plot of the audio waveform (default: True)
 
 ```bash
-make clean
+docker run -it chorus-finder --plot False
 ```

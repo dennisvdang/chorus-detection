@@ -20,7 +20,6 @@ import shutil
 import librosa
 import numpy as np
 from matplotlib import pyplot as plt
-import pandas as pd
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
 from pytube import YouTube
