@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-This project focuses on developing an automated system for detecting choruses in songs using a Convolutional Recurrent Neural Network (CRNN). The model is trained on a custom dataset of 332 annotated songs, predominantly from electronic music genres, and achieved an impressive F1 score of 0.864 (Precision: 0.831, Recall: 0.900) on an unseen test set of 50 songs (albeit from similar genres it was trained on). This repository contains various Python notebooks, scripts, and resources to support the entire data science process, including data collection, exploratory data analysis, digital signal processing techniques, and modeling. Additionally, it features a [Dockerized command-line tool](#setup-and-running-the-cli-with-docker) that integrates the audio processing pipeline and pre-trained CRNN model to predict chorus locations in songs from YouTube links.
+This project focuses on developing an automated system for detecting choruses in songs using a Convolutional Recurrent Neural Network (CRNN). The model is trained on a custom dataset of 332 annotated songs, predominantly from electronic music genres, and achieved an impressive F1 score of 0.864 (Precision: 0.831, Recall: 0.900) on an unseen test set of 50 songs (albeit from similar genres it was trained on). You can use the Streamlit app hosted on [HuggingFace](https://huggingface.co/spaces/dennisvdang/Chorus-Detection) or use the [Dockerized command-line tool](#setup-and-running-the-cli-with-docker) that integrates the audio processing pipeline and pre-trained CRNN model to predict chorus locations in songs from YouTube links.   
 
 If you found this project interesting or informative, feel free to ⭐ star the repository! I welcome any questions, criticisms, or issues you may have. Additionally, if you have any ideas for collaboration, don't hesitate to connect with me. Your feedback and contributions are greatly appreciated!
 
@@ -16,7 +16,6 @@ I have plans to develop a streamlined pipeline for contributors to preprocess an
 
 Below, you'll find information on where to locate specific files and their purposes:
 
-- [`src/chorus_finder.py`](src/chorus_finder.py): A command-line tool that leverages the audio processing pipeline and pre-trained CRNN model to predict chorus locations in songs from YouTube links. For setup and usage instructions, refer to the [Setup and Running the CLI with Docker](#setup-and-running-the-cli-with-docker) section.
 - [`data/clean_labeled.csv`](data/clean_labeled.csv): The labeled dataset used to train the CRNN.
 - [`notebooks/Automated-Chorus-Detection.ipynb`](notebooks/Automated-Chorus-Detection.ipynb): Main development notebook. Includes the code for the audio signal processing pipeline, CRNN model architecture, training, testing, and prediction visualizations.
 - [`notebooks/Preprocessing.ipynb`](notebooks/Preprocessing.ipynb): Covers the audio preprocessing steps to format songs uniformly, trim audio silences, and extract metadata using Spotify's API.
