@@ -136,14 +136,3 @@ docker build -t chorus-finder .
 ```bash
 docker run -it chorus-finder
 ```
-
-### Additional Arguments
-
-The following options and be appended to the docker run command.
-
-- --verbose: Enable verbose output (default: True) 
-- --plot: Display a plot of the audio waveform (default: True)
-
-```bash
-docker run -it chorus-finder --plot False
-```
