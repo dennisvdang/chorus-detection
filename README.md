@@ -21,10 +21,9 @@ Below, you'll find information on where to locate specific files and their purpo
 - [`data/clean_labeled.csv`](data/clean_labeled.csv): The labeled dataset used to train the CRNN.
 - [`notebooks/Automated-Chorus-Detection.ipynb`](notebooks/Automated-Chorus-Detection.ipynb): Main development notebook. Includes the code for the audio signal processing pipeline, CRNN model architecture, training, testing, and prediction visualizations.
 - [`notebooks/Preprocessing.ipynb`](notebooks/Preprocessing.ipynb): Covers the audio preprocessing steps to format songs uniformly, trim audio silences, and extract metadata using Spotify's API.
-- [`notebooks/Mixin_EDA.ipynb`](notebooks/Mixin_EDA.ipynb): Contains preliminary/exploratory analyses such as label quality assurance, feature extraction methods, and audio feature visualizations.
-- [`docs/Automated_Chorus_Detection.pptx`](docs/Automated_Chorus_Detection.pptx): A PowerPoint presentation providing a high-level overview of the project, its purpose, and how it works. PDF formatted version is also available.
-- [`docs/Mixin%20Data%20Annotation%20Guide.pdf`](docs/Mixin%20Data%20Annotation%20Guide.pdf): A guide detailing the manual annotation process for labeling choruses in songs.
-- [`models/CRNN/best_model_V3.h5`](models/CRNN/best_model_V3.h5): The best performing CRNN model trained on the annotated dataset, ready for inference.
+- [`docs/Data_Annotation_Guide.pdf`](docs/Data_Annotation_Guide.pdf): A guide detailing the manual annotation process for labeling choruses in songs.
+- [`docs/Capstone_Final_Report.pdf`](docs/Capstone_Final_Report.pdf): A PDF report detailing the end-to-end data science process.
+- [`models/CRNN/best_model_V3.h5`](models/CRNN/best_model_V3.h5): The best performing CRNN model trained on the annotated dataset.
 
 ## Project Technical Summary
 
