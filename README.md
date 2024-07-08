@@ -37,11 +37,11 @@ The dataset consists of 332 manually labeled songs, predominantly from electroni
 
 ### Model Preprocessing
 
-- **Feature Extraction**: Features such as Root Mean Squared energy, key-invariant chromagrams, Melspectrograms, MFCCs, and tempograms were extracted. These features were decomposed using Non-negative Matrix Factorization using an optimal number of components derived in our exploratory analysis.
+- Features such as Root Mean Squared energy, key-invariant chromagrams, Melspectrograms, MFCCs, and tempograms were extracted. These features were decomposed using Non-negative Matrix Factorization using an optimal number of components derived in our exploratory analysis.
 
-- **Segmentation and Encoding**: Songs were segmented into timesteps based on musical meters, with positional and grid encoding applied to every audio frame and meter, respectively. Songs and labels were uniformly padded and split into train/validation/test sets, processed into batch sizes of 32 using a custom generator.
+- Songs were segmented into timesteps based on musical meters, with positional and grid encoding applied to every audio frame and meter, respectively. Songs and labels were uniformly padded and split into train/validation/test sets, processed into batch sizes of 32 using a custom generator.
 
-- **Padding**: Songs and labels were padded to ensure consistent input lengths for the convolutional layers.
+- Songs and labels were padded to ensure consistent input lengths for the convolutional layers.
 
 - Data is split into train/validation/test (70/15/15) sets and processed into batch sizes of 32 using a custom generator.
 
@@ -56,9 +56,9 @@ Below are examples of audio feature visualizations of a song with 3 choruses (hi
 
 The CRNN model architecture includes:
 
-- **1D Convolutional Layers**: Three 1D convolutional layers with ReLU and max-pooling to extract local patterns.
-- **Bidirectional LSTM Layer**: A Bidirectional LSTM layer to model long-range temporal dependencies.
-- **TimeDistributed Dense Layer**: A TimeDistributed Dense output layer with sigmoid activation for meter-wise predictions.
+- Three 1D convolutional layers with ReLU and max-pooling to extract local patterns.
+- A Bidirectional LSTM layer to model long-range temporal dependencies.
+- A TimeDistributed Dense output layer with sigmoid activation for meter-wise predictions.
 
 ``` python
 def create_crnn_model(max_frames_per_meter, max_meters, n_features):
