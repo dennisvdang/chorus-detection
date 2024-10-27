@@ -23,7 +23,7 @@ Below, you'll find information on where to locate specific files and their purpo
 - [`notebooks/Preprocessing.ipynb`](notebooks/Preprocessing.ipynb): Covers the audio preprocessing steps to format songs uniformly, trim audio silences, and extract metadata using Spotify's API.
 - [`docs/Data_Annotation_Guide.pdf`](docs/Data_Annotation_Guide.pdf): A guide detailing the manual annotation process for labeling choruses in songs.
 - [`docs/Capstone_Final_Report.pdf`](docs/Capstone_Final_Report.pdf): A PDF report detailing the end-to-end data science process.
-- [`models/CRNN/best_model_V3.h5`](models/CRNN/best_model_V3.h5): The best performing CRNN model trained on the annotated dataset. (If you're unable to download the model file due to quota limit, you can visit these links: [HuggingFace repo](https://huggingface.co/dennisvdang/chorus-detection/tree/main) [Google Drive link](https://drive.google.com/file/d/1OoYc5RJwAJo9DmxBHOlP6Qyj1iFvjKoJ/view?usp=sharing)
+- [`models/CRNN/best_model_V3.h5`](models/CRNN/best_model_V3.h5): The best performing CRNN model trained on the annotated dataset. **If you're unable to download the model file due to quota limit, you can visit these links:** [HuggingFace repo](https://huggingface.co/dennisvdang/chorus-detection/tree/main), [Google Drive link](https://drive.google.com/file/d/1OoYc5RJwAJo9DmxBHOlP6Qyj1iFvjKoJ/view?usp=sharing)
 
 ## Project Technical Summary
 
