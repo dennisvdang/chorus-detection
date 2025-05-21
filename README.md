@@ -95,11 +95,11 @@ The model receives as input a song's feature vector (NMF-activated features deri
 
 **CNN Layers:**
 
-The CNN layers (3 Conv1D + MaxPooling1D layers) apply a series of learnable filters to the input features, sliding across the time (frame) dimension within each meter segment, and outputs a single feature vector (embedding) that summarizes the temporal information found within that meter. Note that there is no information shared *between* meters at this stage; each meter’s frames are processed in isolation.
+The CNN layers (3 Conv1D + MaxPooling1D layers) apply a series of learnable filters to the input features, sliding across the time (frame) dimension within each meter segment, and outputs a single feature vector (embedding) that summarizes the temporal information found within that meter. Note that there is no information shared *between* meters at this stage; each meter's frames are processed in isolation.
 
 **LSTM Layer:**
 
-After the CNN layers, the sequence of meter embeddings that make up the input song is passed to a bidirectional LSTM, allowing the model to capture both past and future context across the song’s structure. The LSTM outputs a sequence of hidden states, one for each meter, which are then used for final classification.
+After the CNN layers, the sequence of meter embeddings that make up the input song is passed to a bidirectional LSTM, allowing the model to capture both past and future context across the song's structure. The LSTM outputs a sequence of hidden states, one for each meter, which are then used for final classification.
 
 **Output Layer:**
 
@@ -156,9 +156,100 @@ The model achieved strong results on the held-out test set as shown in the summa
 
 ## Works in progress
 
-- Pytorch implementation using the same CRNN architecture
 - Additional training data for other musical segments (e.g. intro, pre-chorus, bridge, verse)
 - Music data labeling interface for contributions
+
+## PyTorch Implementation (pytorch-modular branch)
+
+This branch contains a PyTorch implementation of the chorus detection model with a modular architecture that makes it easy to experiment with different model configurations, feature sets, and training parameters.
+
+### Key Features
+
+- **Configuration-Driven:** All model and training parameters are defined in YAML configuration files
+- **Modular Architecture:** Clean separation between data processing, model architecture, and training
+- **Reproducible Results:** Consistent random seed initialization for reproducible experiments
+- **Comprehensive Metrics:** Detailed training metrics including loss, accuracy, precision, recall, and F1 score
+- **Visualization:** Automatic plotting of training history and confusion matrices
+- **Checkpointing:** Save and resume training from checkpoints
+
+### Project Structure
+
+```
+chorus-detection/
+│
+├── config/                # Configuration files
+│   ├── default.yaml         # Default configuration
+│   ├── models/              # Model-specific configs
+│   └── features/            # Feature extraction configs
+│
+├── pytorch_core/          # Core PyTorch functionality
+│   ├── data/                # Dataset and data processing
+│   ├── models/              # Model architectures
+│   ├── training/            # Training and evaluation
+│   └── utils/               # Utility functions
+│
+├── scripts/               # Training and inference scripts
+│   ├── train.py             # Script for training
+│   └── inference.py         # Script for inference
+│
+├── experiments/           # For tracking experiments
+│
+├── models/                # Original TensorFlow models
+├── core/                  # Original TensorFlow code
+│
+└── ... (existing directories)
+```
+
+### Getting Started with PyTorch Implementation
+
+1. **Setup Environment:**
+   ```bash
+   conda env create -f environment.yml
+   conda activate chorus-detection
+   pip install torch torchvision torchaudio
+   ```
+
+2. **Train Model:**
+   ```bash
+   python scripts/train.py --config config/default.yaml --segments_dir data/segments_V2 --labels_dir data/labels_V2
+   ```
+
+3. **Run Inference:**
+   ```bash
+   python scripts/inference.py --audio path/to/audio.mp3 --checkpoint checkpoints/best_model.pt
+   ```
+
+### Customizing the Model
+
+You can customize the model by creating new configuration files:
+
+```yaml
+# config/models/custom_model.yaml
+data:
+  sr: 12000
+  hop_length: 128
+  
+model:
+  name: "crnn"
+  cnn:
+    filters: [64, 128, 256]
+    kernel_sizes: [5, 3, 3]
+  
+training:
+  batch_size: 16
+  epochs: 100
+```
+
+Then train with your custom configuration:
+```bash
+python scripts/train.py --config config/models/custom_model.yaml
+```
+
+### Future Work
+
+- Extend to multi-class classification for all song sections (verse, chorus, bridge, etc.)
+- Implement feature importance analysis
+- Add support for audio augmentation
 
 ## Contributing
 

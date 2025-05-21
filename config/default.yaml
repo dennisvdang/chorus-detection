@@ -1,0 +1,38 @@
+data:
+  sr: 12000
+  hop_length: 128
+  max_frames: 300
+  max_meters: 201
+  n_features: 15
+  feature_groups:
+    - rms
+    - mel_acts
+    - chroma_acts
+    - tempogram_acts
+    - mfcc_acts
+
+model:
+  name: "crnn"
+  cnn:
+    filters: [128, 256, 256]
+    kernel_sizes: [3, 3, 3]
+    pool_sizes: [2, 2, 2]
+    padding: "same"
+  rnn:
+    hidden_size: 256
+    bidirectional: true
+  dropout: 0.2
+
+training:
+  batch_size: 32
+  epochs: 50
+  optimizer:
+    name: "adam"
+    lr: 0.001
+  scheduler:
+    name: "reduce_lr_on_plateau"
+    patience: 5
+    factor: 0.5
+  early_stopping:
+    patience: 10
+    min_delta: 0.001 
