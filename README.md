@@ -4,7 +4,7 @@
 
 ## Overview
 
-A hierarchical convolutional recurrent neural network designed for musical structure analysis, specifically optimized for detecting choruses in music recordings. The model was initially trained on 332 annotated songs from electronic music genres and achieved an F1 score of 0.864 (Precision: 0.831, Recall: 0.900) on unseen test data. For more details, scroll down to the [Project Technical Summary section](#project-technical-summary).
+A hierarchical convolutional recurrent neural network designed for detecting choruses in music recordings. The model was initially trained on 332 annotated songs from electronic music genres and achieved an F1 score of 0.864 (Precision: 0.831, Recall: 0.900) on unseen test data. For more details, scroll down to the [Project Technical Summary section](#project-technical-summary).
 
 ## Quick Links
 

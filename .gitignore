@@ -32,9 +32,24 @@ output/
 docs/*
 !docs/
 
-# IDE specific files
-.cursor/
-
 # Jupyter notebook checkpoints
-notebooks/.ipynb_checkpoints/
+.ipynb_checkpoints/
 notebooks/scratch.ipynb
+
+# Build and packaging artifacts
+*.egg-info/
+build/
+dist/
+
+# Training outputs and logs
+checkpoints/
+results/
+ray_results/
+*.log
+
+# Local archive of superseded files
+archive/
+
+__pycache__/
+*.py[cod]
+*$py.class
