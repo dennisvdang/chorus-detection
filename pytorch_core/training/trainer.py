@@ -90,8 +90,7 @@ class Trainer:
                 self.optimizer,
                 mode='min',
                 factor=self.config["training"]["scheduler"]["factor"],
-                patience=self.config["training"]["scheduler"]["patience"],
-                verbose=True
+                patience=self.config["training"]["scheduler"]["patience"]
             )
         else:
             return None

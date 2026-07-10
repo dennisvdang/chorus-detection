@@ -17,7 +17,7 @@ from scipy.signal import medfilt
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pytorch_core.models.crnn import CRNN
-from core.audio_processor import process_audio
+from pytorch_core.audio_processor import process_audio
 
 
 def load_config(config_path):
@@ -77,23 +77,26 @@ def smooth_predictions(predictions, window_size=3, min_segment_length=2):
     return binary_smoothed
 
 
-def detect_chorus(model, audio_path, config, device='cpu'):
+def detect_chorus(model, audio_path, config, device='cpu', bpm=None, time_signature=None):
     """
     Detect chorus segments in audio file using the trained model.
-    
+
     Args:
         model: Trained CRNN model
         audio_path: Path to audio file
         config: Configuration dictionary
         device: Device to run inference on
-    
+        bpm: Optional known tempo; beat-tracker estimate is used when None
+        time_signature: Optional known time signature (beats per meter)
+
     Returns:
         Tuple of (predictions, chorus_start_times, chorus_end_times, audio_features)
     """
-    # Process audio (using the original TensorFlow preprocessing)
-    processed_audio, audio_features = process_audio(audio_path, trim_silence=True, 
-                                                    sr=config["data"]["sr"], 
-                                                    hop_length=config["data"]["hop_length"])
+    # Process audio with the same pipeline used to build the training data
+    processed_audio, audio_features = process_audio(audio_path, trim_silence=True,
+                                                    sr=config["data"]["sr"],
+                                                    hop_length=config["data"]["hop_length"],
+                                                    bpm=bpm, time_signature=time_signature)
     
     if processed_audio is None or audio_features is None:
         print(f"Error processing audio: {audio_path}")
@@ -225,6 +228,10 @@ def main():
                         help="Path to save output plot")
     parser.add_argument("--device", type=str, default="cpu",
                         help="Device to run inference on")
+    parser.add_argument("--bpm", type=float, default=None,
+                        help="Known tempo of the song (otherwise estimated)")
+    parser.add_argument("--time-signature", type=int, default=None,
+                        help="Known time signature (otherwise 4/4)")
     args = parser.parse_args()
     
     # Check if audio file exists
@@ -247,7 +254,8 @@ def main():
     # Detect chorus
     print(f"Detecting chorus in {args.audio}...")
     predictions, chorus_start_times, chorus_end_times, audio_features = detect_chorus(
-        model, args.audio, config, device=args.device)
+        model, args.audio, config, device=args.device,
+        bpm=args.bpm, time_signature=args.time_signature)
     
     if predictions is None:
         print("Error detecting chorus.")

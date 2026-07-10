@@ -270,38 +270,41 @@ class AudioFeature:
         self._extracted_features.add('beats')
         return self.tempo, self.beats
     
-    def create_meter_grid(self):
-        """Create a grid based on the meter of the song, using tempo and beats."""
+    def create_meter_grid(self, bpm: Optional[float] = None,
+                          time_signature: Optional[int] = None) -> np.ndarray:
+        """Create a grid based on the meter of the song, using tempo and beats.
+
+        Args:
+            bpm: Optional known tempo (e.g. from dataset metadata). Clipped to
+                [70, 140] like the original training preprocessing. When None,
+                the tempo detected by detect_beats() is used.
+            time_signature: Optional known time signature (beats per meter).
+        """
         if 'beats' not in self._extracted_features:
             self.detect_beats()
-            
+
+        if bpm is not None:
+            self.tempo = float(np.clip(bpm, 70, 140))
+        if time_signature is not None:
+            self.time_signature = int(time_signature)
+
         self.meter_grid = self._create_meter_grid()
         return self.meter_grid
-    
+
     def _create_meter_grid(self) -> np.ndarray:
-        """Helper function to create a meter grid for the song."""
-        seconds_per_beat = 60 / self.tempo
-        beat_interval = int(librosa.time_to_frames(
-            seconds_per_beat, sr=self.sr, hop_length=self.hop_length))
+        """Helper function to create a meter grid for the song.
 
-        # Find best matching start beat
-        if len(self.beats) >= 3:
-            best_match = max(
-                (1 - abs(np.mean(self.beats[i:i+3]) - beat_interval) / beat_interval, self.beats[i])
-                for i in range(len(self.beats) - 2)
-            )[1]
-            anchor_frame = best_match if best_match > 0.95 else self.beats[0]
-        else:
-            anchor_frame = self.beats[0] if len(self.beats) > 0 else 0
-            
-        first_beat_time = librosa.frames_to_time(anchor_frame, sr=self.sr, hop_length=self.hop_length)
-
-        # Calculate beats forward and backward
+        Mirrors the meter grid used to build the training data
+        (notebooks/Automated-Chorus-Detection-V2.ipynb / scripts/preprocess.py).
+        """
+        first_beat_frame = self.beats[0] if len(self.beats) > 0 else 0
+        first_beat_time = librosa.frames_to_time(first_beat_frame, sr=self.sr, hop_length=self.hop_length)
         time_duration = librosa.frames_to_time(self.n_frames, sr=self.sr, hop_length=self.hop_length)
+        seconds_per_beat = 60.0 / self.tempo
+
+        # Calculate beats forward and backward from the first detected beat
         num_beats_forward = int((time_duration - first_beat_time) / seconds_per_beat)
         num_beats_backward = int(first_beat_time / seconds_per_beat) + 1
-
-        # Create beat times in both directions
         beat_times_forward = first_beat_time + np.arange(num_beats_forward) * seconds_per_beat
         beat_times_backward = first_beat_time - np.arange(1, num_beats_backward) * seconds_per_beat
 
@@ -310,14 +313,13 @@ class AudioFeature:
         meter_indices = np.arange(0, len(beat_grid), self.time_signature)
         meter_grid = beat_grid[meter_indices]
 
-        # Ensure grid starts at 0
+        # Ensure grid starts at 0 and ends at the final frame
         if meter_grid[0] != 0.0:
             meter_grid = np.insert(meter_grid, 0, 0.0)
-            
-        # Convert to frames and add final frame
         meter_grid_frames = librosa.time_to_frames(meter_grid, sr=self.sr, hop_length=self.hop_length)
-        meter_grid_frames = np.append(meter_grid_frames, self.n_frames)
-        
+        if meter_grid_frames[-1] != self.n_frames:
+            meter_grid_frames = np.append(meter_grid_frames, self.n_frames)
+
         return meter_grid_frames
 
 
@@ -327,26 +329,26 @@ def segment_data_meters(data: np.ndarray, meter_grid: List[int]) -> List[np.ndar
 
 
 def positional_encoding(position: int, d_model: int) -> np.ndarray:
-    """Add positional encoding to input data."""
-    pe = np.zeros(d_model)
-    for i in range(0, d_model, 2):
-        pe[i] = np.sin(position / (10000 ** (i / d_model)))
-        if i + 1 < d_model:
-            pe[i + 1] = np.cos(position / (10000 ** (i / d_model)))
-    return pe
+    """Generate positional encodings for the given number of positions.
+
+    Same encoding used to build the training data
+    (notebooks/Automated-Chorus-Detection-V2.ipynb / scripts/preprocess.py).
+    """
+    angle_rads = (
+        np.arange(position)[:, np.newaxis] /
+        np.power(10000, (2 * (np.arange(d_model)[np.newaxis, :] // 2)) / np.float32(d_model))
+    )
+    return np.concatenate([np.sin(angle_rads[:, 0::2]), np.cos(angle_rads[:, 1::2])], axis=-1)
 
 
 def apply_hierarchical_positional_encoding(segments: List[np.ndarray]) -> List[np.ndarray]:
-    """Apply positional encoding to a list of segments."""
-    encoded_segments = []
-    for meter_idx, meter_segment in enumerate(segments):
-        meter_encoded = np.zeros_like(meter_segment)
-        for frame_idx, frame in enumerate(meter_segment):
-            frame_pos_encoding = positional_encoding(frame_idx, frame.shape[0]) * 0.1
-            meter_pos_encoding = positional_encoding(meter_idx, frame.shape[0]) * 0.2
-            meter_encoded[frame_idx] = frame + frame_pos_encoding + meter_pos_encoding
-        encoded_segments.append(meter_encoded)
-    return encoded_segments
+    """Apply positional encoding at the meter and frame levels to a list of segments."""
+    n_features = segments[0].shape[1]
+    meter_level_encodings = positional_encoding(len(segments), n_features)
+    return [
+        seg + positional_encoding(len(seg), n_features) + meter_level_encodings[i]
+        for i, seg in enumerate(segments)
+    ]
 
 
 def pad_song(encoded_segments: List[np.ndarray], max_frames: int = MAX_FRAMES, 
@@ -381,18 +383,20 @@ def pad_song(encoded_segments: List[np.ndarray], max_frames: int = MAX_FRAMES,
     return padded_song
 
 
-def process_audio(audio_path, trim_silence=True, sr=SR, hop_length=HOP_LENGTH, 
-                  extract_spectrogram_only=False):
+def process_audio(audio_path, trim_silence=True, sr=SR, hop_length=HOP_LENGTH,
+                  extract_spectrogram_only=False, bpm=None, time_signature=None):
     """
     Process an audio file for chorus detection.
-    
+
     Args:
         audio_path: Path to audio file
         trim_silence: Whether to strip silence from the audio
         sr: Sample rate
         hop_length: Hop length for feature extraction
         extract_spectrogram_only: If True, only extract raw spectrograms for the spectrogram-based model
-    
+        bpm: Optional known tempo; falls back to beat-tracker estimate when None
+        time_signature: Optional known time signature (beats per meter)
+
     Returns:
         Tuple of (padded_song, audio_features)
     """
@@ -415,7 +419,7 @@ def process_audio(audio_path, trim_silence=True, sr=SR, hop_length=HOP_LENGTH,
             audio_features.extract_features()
         
         # Create meter grid and segment
-        meter_grid = audio_features.create_meter_grid()
+        meter_grid = audio_features.create_meter_grid(bpm=bpm, time_signature=time_signature)
         feature_segments = segment_data_meters(audio_features.combined_features, meter_grid)
         encoded_segments = apply_hierarchical_positional_encoding(feature_segments)
         
