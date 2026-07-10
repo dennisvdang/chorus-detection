@@ -162,6 +162,10 @@ class CustomBCELoss(nn.Module):
         
         # Apply mask
         masked_loss = bce_loss * mask
-        
-        # Return mean of masked values
-        return torch.sum(masked_loss) / torch.sum(mask) 
+
+        # Return mean over valid (non-padded) values, guarding against an
+        # all-padding batch (sum(mask) == 0 would otherwise give NaN)
+        num_valid = torch.sum(mask)
+        if num_valid > 0:
+            return torch.sum(masked_loss) / num_valid
+        return torch.tensor(0.0, device=predictions.device)
