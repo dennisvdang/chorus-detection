@@ -48,7 +48,7 @@ def display_audio_player(audio_path, start_time=None, end_time=None):
 
 def process_youtube_url(youtube_url):
     """Process a YouTube URL and return the audio path."""
-    with st.spinner("Downloading audio from YouTube..."):
+    with st.spinner("Requesting audio from YouTube..."):
         try:
             audio_path, video_title = extract_audio(youtube_url)
         except Exception:
@@ -203,8 +203,8 @@ def main():
         st.header("About")
         st.markdown("""
         ## How it works
-        
-        This app uses a neural network model to analyze audio and identify choruses based on various audio features and music structures.
+
+        The app extracts audio features (RMS energy, key-invariant chroma, mel spectrogram, MFCC, and tempogram activations), segments them by musical meter, and feeds them to a convolutional recurrent neural network that predicts a chorus probability for each meter. See the [GitHub repository](https://github.com/dennisvdang/chorus-detection) for the full architecture, training details, and source code.
         
         ## Supported formats
         

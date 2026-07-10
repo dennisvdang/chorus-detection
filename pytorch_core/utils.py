@@ -33,6 +33,12 @@ def extract_audio(url, output_path=AUDIO_TEMP_PATH):
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
+            # Fail fast when YouTube is unreachable or blocking the request
+            # instead of cycling through yt-dlp's default retry backoff.
+            "socket_timeout": 10,
+            "retries": 2,
+            "fragment_retries": 2,
+            "extractor_retries": 1,
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
