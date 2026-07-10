@@ -49,9 +49,17 @@ def display_audio_player(audio_path, start_time=None, end_time=None):
 def process_youtube_url(youtube_url):
     """Process a YouTube URL and return the audio path."""
     with st.spinner("Downloading audio from YouTube..."):
-        audio_path, video_title = extract_audio(youtube_url)
+        try:
+            audio_path, video_title = extract_audio(youtube_url)
+        except Exception:
+            audio_path, video_title = None, None
         if not audio_path:
-            st.error("Failed to download audio from the provided YouTube URL.")
+            st.error(
+                "Could not download audio from this YouTube URL. YouTube "
+                "sometimes blocks downloads from hosted servers, or the video "
+                "may be age-, region-, or copyright-restricted. Please try "
+                "uploading an audio file instead."
+            )
             return None, None
         return audio_path, video_title
 
@@ -172,13 +180,20 @@ def analyze_audio(audio_path, video_title=None):
 def main():
     """Main function for the Streamlit app."""
     st.set_page_config(
-        page_title="Chorus Detection App",
-        page_icon="🎵",
+        page_title="Automated Chorus Detection",
         layout="wide",
         initial_sidebar_state="expanded",
     )
-    
-    st.title("🎵 Chorus Detection App")
+
+    st.markdown("""
+    <style>
+    div.stButton > button {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.title("Automated Chorus Detection")
     st.markdown("""
     Upload an audio file or provide a YouTube URL to get started.
     """)
@@ -222,7 +237,7 @@ def main():
         if uploaded_file is not None:
             st.audio(uploaded_file)
             
-            if st.button("Detect Choruses", use_container_width=True):
+            if st.button("Analyze", type="primary", key="analyze_upload"):
                 audio_path, file_name = process_uploaded_file(uploaded_file)
                 try:
                     analyze_audio(audio_path, file_name)
@@ -242,7 +257,7 @@ def main():
         )
         
         if youtube_url:
-            if st.button("Detect Choruses", use_container_width=True):
+            if st.button("Analyze", type="primary", key="analyze_youtube"):
                 audio_path, video_title = process_youtube_url(youtube_url)
                 if audio_path:
                     analyze_audio(audio_path, video_title)
