@@ -31,7 +31,7 @@ setup(
             "streamlit>=1.22.0,<1.23.0",
             "pytube>=15.0.0,<16.0.0",
         ],
-        "dev": ["pytest", "black", "flake8"],
+        "dev": ["pytest>=7.0", "black", "flake8"],
     },
     entry_points={
         "console_scripts": [
