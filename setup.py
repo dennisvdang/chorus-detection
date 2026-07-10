@@ -22,20 +22,15 @@ setup(
         "pandas>=2.0.0,<2.1.0",
         "tqdm>=4.65.0",
         "pyyaml>=6.0.0",
+        "torch>=2.0.0",
+        "streamlit>=1.22.0,<1.23.0",
+        "pytube>=15.0.0,<16.0.0",
     ],
     extras_require={
-        "torch": ["torch>=2.0.0"],
-        "tf": [
-            "tensorflow==2.10.0",
-            "protobuf<3.20",
-            "streamlit>=1.22.0,<1.23.0",
-            "pytube>=15.0.0,<16.0.0",
-        ],
         "dev": ["pytest>=7.0", "black", "flake8"],
     },
     entry_points={
         "console_scripts": [
-            "chorus-detection=cli.cli_app:run_cli",
             "chorus-detection-web=web.app:run_web_app",
         ],
     },

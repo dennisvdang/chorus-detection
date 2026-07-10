@@ -13,13 +13,10 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import time
 import sys
 
-# Configure TensorFlow logging before importing TensorFlow
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress TensorFlow logs
-
-from core.audio_processor import process_audio
-from core.model import load_CRNN_model, make_predictions, MODEL_PATH
-from core.visualization import plot_predictions, plot_chorus_segments
-from core.utils import extract_audio, cleanup_temp_files
+from pytorch_core.audio_processor import process_audio
+from pytorch_core.model import load_CRNN_model, make_predictions, MODEL_PATH
+from pytorch_core.visualization import plot_predictions, plot_chorus_segments
+from pytorch_core.utils import extract_audio, cleanup_temp_files
 
 
 def create_download_link(fig, filename="plot.png"):

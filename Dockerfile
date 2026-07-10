@@ -39,5 +39,5 @@ VOLUME ["/app/input", "/app/output", "/app/models"]
 # Expose port for Streamlit
 EXPOSE 8501
 
-# Default to showing help message
-CMD ["chorus-detection", "--help"]
+# Run the web app by default
+CMD ["chorus-detection-web"]

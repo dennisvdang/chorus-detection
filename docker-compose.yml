@@ -12,20 +12,4 @@ services:
       - ./input:/app/input
       - ./output:/app/output
     command: chorus-detection-web
-    environment:
-      - TF_CPP_MIN_LOG_LEVEL=2
-    restart: unless-stopped
-
-  cli:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - ./models:/app/models
-      - ./input:/app/input
-      - ./output:/app/output
-    environment:
-      - TF_CPP_MIN_LOG_LEVEL=2
-    command: /bin/bash
-    tty: true
-    stdin_open: true 
+    restart: unless-stopped 

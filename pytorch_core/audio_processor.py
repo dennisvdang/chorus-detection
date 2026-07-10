@@ -9,7 +9,7 @@ from typing import List, Tuple, Dict, Any, Optional
 import librosa
 from sklearn.preprocessing import StandardScaler
 
-from core.utils import strip_silence
+from pytorch_core.utils import strip_silence
 
 # Constants
 SR = 12000

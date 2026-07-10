@@ -1,8 +1,7 @@
-# Requirements for the PyTorch chorus detection pipeline
-# (preprocessing, training, inference). Python >= 3.8.
+# Requirements for the chorus detection pipeline and web app
+# (preprocessing, training, inference, streamlit UI). Python >= 3.8.
 #
-# For the legacy TensorFlow app (core/, cli/, web/), additionally install:
-#   pip install -r requirements-tf.txt
+# The original TensorFlow implementation lives on the `tensorflow` branch.
 
 # Core scientific stack (pins chosen for Python 3.8 compatibility)
 numpy>=1.24.0,<1.25.0
@@ -21,6 +20,10 @@ librosa>=0.10.0,<0.11.0
 soundfile>=0.12.1,<0.13.0
 pydub>=0.25.1,<0.26.0
 ffmpeg-python>=0.2.0,<0.3.0
+
+# Web interface and audio acquisition
+streamlit>=1.22.0,<1.23.0
+pytube>=15.0.0,<16.0.0
 
 # Install the package itself for development
 -e .
