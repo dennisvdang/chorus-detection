@@ -4,14 +4,16 @@
 
 ## Overview
 
-A hierarchical convolutional recurrent neural network designed for detecting choruses in music recordings. The model was initially trained on 332 annotated songs from electronic music genres and achieved an F1 score of 0.864 (Precision: 0.831, Recall: 0.900) on unseen test data. For more details, scroll down to the [Project Technical Summary section](#project-technical-summary).
+A hierarchical convolutional recurrent neural network designed for detecting choruses in music recordings, implemented in PyTorch. The model was trained on 332 annotated songs from electronic music genres and achieved an F1 score of 0.871 (Precision: 0.867, Recall: 0.875) on unseen test data. For more details, scroll down to the [Project Technical Summary section](#project-technical-summary).
+
+The original TensorFlow implementation is preserved on the [`tensorflow`](../../tree/tensorflow) branch.
 
 ## Quick Links
 
 - [Try the model on HuggingFace Spaces](https://huggingface.co/spaces/dennisvdang/Chorus-Detection)
 - [Labeled training dataset of 332 songs (audio files not included)](data/clean_labeled.csv)
-- [Pre-trained model file](models/CRNN/best_model_V3.h5)
-- [Model training notebook](notebooks/Automated-Chorus-Detection.ipynb)
+- [Pre-trained model file](https://github.com/dennisvdang/chorus-detection/releases/download/pytorch-v1.0/crnn_v1.pt)
+- [Original model training notebook](notebooks/Automated-Chorus-Detection.ipynb)
 - [Music annotation process](docs/Data_Annotation_Guide.pdf)
 - [Project PDF writeup](docs/Capstone_Final_Report.pdf)
 
@@ -28,33 +30,37 @@ conda activate chorus-detection
 pip install -r requirements.txt
 
 # With conda environment activated
-# Run the web-app locally (recommended)
+# Run the web-app locally
 streamlit run web/app.py
-
-# Or run the CLI
-python cli/cli_app.py
 ```
+
+The pretrained model is downloaded automatically on first run.
 
 ## Project Structure
 
 ```
 chorus-detection/
 │
-├── core/                 # Core functionality
+├── pytorch_core/         # Core functionality
 │   ├── audio_processor.py   # Audio processing and feature extraction
 │   ├── model.py             # Model loading and prediction
+│   ├── models/              # Model architectures (CRNN)
+│   ├── data/                # Dataset classes
+│   ├── training/            # Trainer with evaluation and checkpointing
 │   ├── utils.py             # Utility functions
 │   └── visualization.py     # Plotting and visualization
-│
-├── cli/                  # Command-line interface
-│   └── cli_app.py           # CLI application
 │
 ├── web/                  # Web interface
 │   └── app.py               # Streamlit web application
 │
+├── scripts/              # Preprocessing, training, and inference scripts
+│   ├── preprocess.py        # Audio -> training segments and labels
+│   ├── train.py             # Training entry point
+│   └── inference.py         # Chorus detection on a new audio file
+│
+├── config/               # Model and training configuration
+├── tests/                # pytest suite
 ├── models/               # Pre-trained models
-├── input/                # Input audio files
-├── output/               # Output files and visualizations
 │
 ├── setup.py              # Package setup
 ├── requirements.txt      # Package requirements
@@ -106,38 +112,46 @@ After the CNN layers, the sequence of meter embeddings that make up the input so
 A TimeDistributed dense layer with a sigmoid activation is applied to the LSTM outputs, producing a probability for each meter indicating the likelihood that it corresponds to a chorus section. The model is trained using a custom binary cross-entropy loss that masks out padded values, allowing the model to learn from variable-length songs.
 
 ``` python
-def create_crnn_model(max_frames_per_meter, max_meters, n_features):
-    """
-    Args:
-    max_frames_per_meter (int): Maximum number of frames per meter.
-    max_meters (int): Maximum number of meters.
-    n_features (int): Number of features per frame.
-    """
-    frame_input = layers.Input(shape=(max_frames_per_meter, n_features))
-    conv1 = layers.Conv1D(filters=128, kernel_size=3, activation='relu', padding='same')(frame_input)
-    pool1 = layers.MaxPooling1D(pool_size=2, padding='same')(conv1)
-    conv2 = layers.Conv1D(filters=256, kernel_size=3, activation='relu', padding='same')(pool1)
-    pool2 = layers.MaxPooling1D(pool_size=2, padding='same')(conv2)
-    conv3 = layers.Conv1D(filters=256, kernel_size=3, activation='relu', padding='same')(pool2)
-    pool3 = layers.MaxPooling1D(pool_size=2, padding='same')(conv3)
-    frame_features = layers.Flatten()(pool3)
-    frame_feature_model = Model(inputs=frame_input, outputs=frame_features)
+class CRNN(nn.Module):
+    """Convolutional Recurrent Neural Network for chorus detection.
 
-    meter_input = layers.Input(shape=(max_meters, max_frames_per_meter, n_features))
-    time_distributed = layers.TimeDistributed(frame_feature_model)(meter_input)
-    masking_layer = layers.Masking(mask_value=0.0)(time_distributed)
-    lstm_out = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(masking_layer)
-    output = layers.TimeDistributed(layers.Dense(1, activation='sigmoid'))(lstm_out)
-    model = Model(inputs=meter_input, outputs=output)
-    model.compile(optimizer='adam', loss=custom_binary_crossentropy, metrics=[custom_accuracy])
-    return model
+    Processes audio at two time scales:
+    1. CNN extracts features from frames within each meter
+    2. Bidirectional LSTM models relationships between meters
+    """
+
+    def __init__(self, config):
+        super().__init__()
+        # CNN: Conv1D(128/256/256, kernel 3) + ReLU + MaxPool, applied per meter
+        self.cnn_layers = self._build_cnn_layers()
+        self.cnn_output_dim = self._calculate_cnn_output_dim()
+        # BiLSTM over the sequence of meter embeddings
+        self.rnn = nn.LSTM(input_size=self.cnn_output_dim, hidden_size=256,
+                           bidirectional=True, batch_first=True)
+        self.output_layer = nn.Linear(512, 1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        # x: [batch, max_meters, max_frames, n_features]
+        batch_size, max_meters, max_frames, n_features = x.shape
+        # Meters that are entirely zero are padding
+        mask = (x.sum(dim=(2, 3)) != 0).float().unsqueeze(-1)
+        # Run the CNN over every meter independently (TimeDistributed-style)
+        x = x.view(batch_size * max_meters, max_frames, n_features).transpose(1, 2)
+        cnn_out = self.cnn_layers(x).reshape(batch_size, max_meters, -1)
+        # Model relationships between meters across the whole song
+        rnn_out, _ = self.rnn(cnn_out)
+        # Per-meter chorus probability, with padding zeroed out
+        return self.sigmoid(self.output_layer(rnn_out)) * mask
 ```
+
+The model is trained with a masked binary cross-entropy loss that ignores padded meters (labeled -1), allowing it to learn from variable-length songs. The full implementation is in [pytorch_core/models/crnn.py](pytorch_core/models/crnn.py).
 
 ### Training
 
-- Custom loss and accuracy functions handle padded values
-- Callbacks to save best model based on minimal validation loss, reduce learning rate on plateau, and early stopping
-- Trained for 50 epochs (stopped early after 18 epochs). Training/Validation Loss and Accuracy plotted below:
+- Custom masked loss and accuracy handle padded values
+- Best model saved on minimal validation loss, learning rate reduced on plateau, and early stopping
+- Trained for up to 50 epochs (stopped early after 24 epochs). Training/Validation Loss and Accuracy plotted below:
 ![Training History](images/training_history.png)
 
 ### Results
@@ -146,11 +160,11 @@ The model achieved strong results on the held-out test set as shown in the summa
 
 | Metric         | Score  |
 |----------------|--------|
-| Loss           | 0.278  |
-| Accuracy       | 0.891  |
-| Precision      | 0.831  |
-| Recall         | 0.900  |
-| F1 Score       | 0.864  |
+| Loss           | 0.253  |
+| Accuracy       | 0.893  |
+| Precision      | 0.867  |
+| Recall         | 0.875  |
+| F1 Score       | 0.871  |
 
 ![Confusion Matrix](./images/confusion_matrix.png)
 
@@ -159,48 +173,15 @@ The model achieved strong results on the held-out test set as shown in the summa
 - Additional training data for other musical segments (e.g. intro, pre-chorus, bridge, verse)
 - Music data labeling interface for contributions
 
-## PyTorch Implementation (pytorch-modular branch)
+## Training Your Own Model
 
-This branch contains a PyTorch port of the chorus detection model with a modular
-architecture that makes it easy to experiment with different model
-configurations, feature sets, and training parameters. The port reproduces the
-original TensorFlow model's performance (test F1 0.862 vs 0.864); see
-[docs/pytorch_results.md](docs/pytorch_results.md) for the full comparison.
-
-### Key Features
-
-- **Configuration-Driven:** Model and training parameters are defined in a YAML config file
-- **Modular Architecture:** Clean separation between data processing, model architecture, and training
-- **Reproducible Results:** Consistent random seed initialization for reproducible experiments
-- **Comprehensive Metrics:** Loss, accuracy, precision, recall, and F1 score
-- **Checkpointing:** Save and resume training from checkpoints
-
-### Project Structure
-
-```
-chorus-detection/
-│
-├── config/
-│   └── default.yaml         # Model and training configuration
-│
-├── pytorch_core/            # Core PyTorch functionality
-│   ├── data/                # Dataset classes
-│   ├── models/              # Model architectures (crnn.py + spectrogram experiment)
-│   ├── training/            # Trainer with evaluation and checkpointing
-│   └── audio_processor.py   # Feature extraction and meter segmentation
-│
-├── scripts/
-│   ├── preprocess.py        # Audio -> training segments and labels
-│   ├── train.py             # Training entry point
-│   └── inference.py         # Chorus detection on a new audio file
-│
-├── tests/                   # pytest suite
-│
-├── models/                  # Original TensorFlow model (models/CRNN/)
-└── core/                    # Original TensorFlow inference code
-```
-
-### Getting Started with the PyTorch Implementation
+The implementation uses a modular architecture that makes it easy to experiment
+with different model configurations, feature sets, and training parameters —
+model and training parameters live in a YAML config file, with reproducible
+seeded splits and checkpointing. The PyTorch port reproduces the original
+TensorFlow model's performance; see
+[docs/pytorch_results.md](docs/pytorch_results.md) for the full comparison
+against the TensorFlow baseline.
 
 1. **Set up the environment:**
    ```bash
