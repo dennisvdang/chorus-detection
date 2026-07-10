@@ -8,6 +8,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import librosa
 import numpy as np
+import soundfile as sf
 from io import BytesIO
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import time
@@ -33,18 +34,11 @@ def display_audio_player(audio_path, start_time=None, end_time=None):
     try:
         # Load the audio file
         if start_time is not None and end_time is not None:
-            # Load segment
+            # Load the segment and serve it as an in-memory WAV
             y, sr = librosa.load(audio_path, sr=None, offset=start_time, duration=end_time-start_time)
-            # Create a temporary file to hold the segment
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
-                temp_path = temp_file.name
-                librosa.output.write_wav(temp_path, y, sr)
-                st.audio(temp_path)
-                # Remove the temp file after playing
-                try:
-                    os.unlink(temp_path)
-                except:
-                    pass
+            buf = BytesIO()
+            sf.write(buf, y, sr, format="WAV")
+            st.audio(buf.getvalue(), format="audio/wav")
         else:
             # Play the full file
             st.audio(audio_path)
