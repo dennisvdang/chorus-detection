@@ -200,7 +200,6 @@ def main():
     
     # Create a sidebar for app explanation
     with st.sidebar:
-        st.header("About")
         st.markdown("""
         ## How it works
 
