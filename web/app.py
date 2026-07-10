@@ -204,7 +204,7 @@ def main():
         st.markdown("""
         ## How it works
 
-        The app extracts audio features (RMS energy, key-invariant chroma, mel spectrogram, MFCC, and tempogram activations), segments them by musical meter, and feeds them to a convolutional recurrent neural network that predicts a chorus probability for each meter. See the [GitHub repository](https://github.com/dennisvdang/chorus-detection) for the full architecture, training details, and source code.
+        The pipeline extracts audio features (RMS energy, key-invariant chroma, mel spectrogram, MFCC, and tempogram activations), segments them by musical meter, and feeds them to a convolutional recurrent neural network that predicts a chorus probability for each meter. See the [GitHub repository](https://github.com/dennisvdang/chorus-detection) for the full architecture, training details, and source code.
         
         ## Supported formats
         
