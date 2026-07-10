@@ -21,7 +21,7 @@ model:
   rnn:
     hidden_size: 256
     bidirectional: true
-  dropout: 0.2
+  dropout: 0.0  # original TF model used no dropout
 
 training:
   batch_size: 32

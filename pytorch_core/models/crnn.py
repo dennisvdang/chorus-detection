@@ -27,72 +27,68 @@ class CRNN(nn.Module):
         super(CRNN, self).__init__()
         self.config = config
         
-        # CNN parameters
-        cnn_config = config["model"]["cnn"]
-        self.filters = cnn_config["filters"]
-        self.kernel_sizes = cnn_config["kernel_sizes"]
-        self.pool_sizes = cnn_config["pool_sizes"]
-        self.padding = cnn_config["padding"]
+        # CNN for frame-level feature extraction
+        self.cnn_layers = self._build_cnn_layers()
         
-        # LSTM parameters
-        rnn_config = config["model"]["rnn"]
-        self.hidden_size = rnn_config["hidden_size"]
-        self.bidirectional = rnn_config["bidirectional"]
+        # Calculate CNN output dimension
+        self.cnn_output_dim = self._calculate_cnn_output_dim()
         
-        # Data parameters
-        self.max_frames = config["data"]["max_frames"]
-        self.max_meters = config["data"]["max_meters"]
-        self.n_features = config["data"]["n_features"]
-        self.dropout_rate = config["model"]["dropout"]
-        
-        # Build CNN layers
-        self.conv_layers = nn.ModuleList()
-        self.pool_layers = nn.ModuleList()
-        
-        in_channels = self.n_features
-        for i in range(len(self.filters)):
-            self.conv_layers.append(
-                nn.Conv1d(
-                    in_channels=in_channels,
-                    out_channels=self.filters[i],
-                    kernel_size=self.kernel_sizes[i],
-                    padding='same'
-                )
-            )
-            self.pool_layers.append(
-                nn.MaxPool1d(
-                    kernel_size=self.pool_sizes[i],
-                    padding=0 if self.padding == 'valid' else self.pool_sizes[i] // 2
-                )
-            )
-            in_channels = self.filters[i]
-        
-        # Calculate output size of CNN
-        cnn_output_size = self._calculate_cnn_output_size()
-        
-        # Build LSTM layer
-        self.lstm = nn.LSTM(
-            input_size=cnn_output_size,
-            hidden_size=self.hidden_size,
-            bidirectional=self.bidirectional,
+        # RNN for meter-level sequence modeling
+        self.rnn = nn.LSTM(
+            input_size=self.cnn_output_dim,
+            hidden_size=config["model"]["rnn"]["hidden_size"],
+            bidirectional=config["model"]["rnn"]["bidirectional"],
             batch_first=True
         )
+
+        # Optional dropout between RNN and output layer
+        # (the original TF model used none; config dropout defaults to 0.0)
+        self.dropout = nn.Dropout(config["model"].get("dropout", 0.0))
+
+        # Output layer
+        rnn_output_dim = config["model"]["rnn"]["hidden_size"] * (2 if config["model"]["rnn"]["bidirectional"] else 1)
+        self.output_layer = nn.Linear(rnn_output_dim, 1)
+        self.sigmoid = nn.Sigmoid()
         
-        # Build output layer
-        lstm_output_size = self.hidden_size * 2 if self.bidirectional else self.hidden_size
-        self.dropout = nn.Dropout(self.dropout_rate)
-        self.output_layer = nn.Linear(lstm_output_size, 1)
+    def _build_cnn_layers(self) -> nn.Sequential:
+        """Build CNN layers based on configuration."""
+        layers = []
+        in_channels = self.config["data"]["n_features"]
         
-    def _calculate_cnn_output_size(self) -> int:
-        """Calculate the output size of the CNN layers."""
-        size = self.max_frames
-        for pool_size in self.pool_sizes:
-            size = size // pool_size
-        return size * self.filters[-1]
+        for i, (filters, kernel_size, pool_size) in enumerate(zip(
+            self.config["model"]["cnn"]["filters"], 
+            self.config["model"]["cnn"]["kernel_sizes"],
+            self.config["model"]["cnn"]["pool_sizes"]
+        )):
+            padding = kernel_size // 2 if self.config["model"]["cnn"]["padding"] == "same" else 0
+            layers.append(nn.Conv1d(in_channels, filters, kernel_size, padding=padding))
+            layers.append(nn.ReLU())
+            # ceil_mode matches Keras MaxPooling1D(padding='same'):
+            # 300 -> 150 -> 75 -> 38 frames, keeping the flattened CNN
+            # output dimension identical to the original TF model
+            layers.append(nn.MaxPool1d(pool_size, ceil_mode=True))
+            in_channels = filters
+            
+        return nn.Sequential(*layers)
+    
+    def _calculate_cnn_output_dim(self) -> int:
+        """Calculate the output dimensions of the CNN for a single frame."""
+        # Start with the maximum number of frames per meter
+        max_frames = self.config["data"]["max_frames"]
+        n_features = self.config["data"]["n_features"]
         
+        # Create a dummy input tensor
+        x = torch.zeros(1, n_features, max_frames)
+        
+        # Pass through CNN layers
+        x = self.cnn_layers(x)
+        
+        # Return flattened dimension
+        return x.view(1, -1).size(1)
+    
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Forward pass through the model.
+        Forward pass through the CRNN model.
         
         Args:
             x: Input tensor of shape [batch_size, max_meters, max_frames, n_features]
@@ -100,80 +96,72 @@ class CRNN(nn.Module):
         Returns:
             Output tensor of shape [batch_size, max_meters, 1]
         """
-        batch_size = x.size(0)
+        batch_size, max_meters, max_frames, n_features = x.shape
         
-        # Process each meter through CNN
-        meter_features = []
-        for i in range(self.max_meters):
-            # Extract frames for current meter
-            meter_frames = x[:, i, :, :]  # [batch_size, max_frames, n_features]
-            
-            # Transpose for Conv1D (channel last -> channel first)
-            meter_frames = meter_frames.transpose(1, 2)  # [batch_size, n_features, max_frames]
-            
-            # Pass through CNN layers
-            conv_out = meter_frames
-            for j in range(len(self.conv_layers)):
-                conv_out = F.relu(self.conv_layers[j](conv_out))
-                conv_out = self.pool_layers[j](conv_out)
-            
-            # Flatten CNN output
-            flat_features = conv_out.reshape(batch_size, -1)
-            meter_features.append(flat_features)
+        # Create mask for padding (meters with all zeros are padding)
+        mask = (x.sum(dim=(2, 3)) != 0).float().unsqueeze(-1)
         
-        # Stack meter features
-        meters_sequence = torch.stack(meter_features, dim=1)  # [batch_size, max_meters, cnn_output_size]
+        # Reshape for TimeDistributed-like behavior
+        x_reshaped = x.view(batch_size * max_meters, max_frames, n_features)
         
-        # Create mask for padding values
-        mask = (torch.sum(torch.abs(meters_sequence), dim=2) != 0).float().unsqueeze(2)
+        # Transpose for Conv1D (expects [N, C, L])
+        x_reshaped = x_reshaped.transpose(1, 2)
         
-        # Pass through LSTM
-        lstm_out, _ = self.lstm(meters_sequence)
+        # Apply CNN
+        cnn_out = self.cnn_layers(x_reshaped)
         
-        # Apply dropout
-        lstm_out = self.dropout(lstm_out)
+        # Flatten CNN output
+        cnn_out = cnn_out.reshape(cnn_out.size(0), -1)
         
-        # Pass through output layer
-        outputs = torch.sigmoid(self.output_layer(lstm_out))
+        # Reshape back to [batch_size, max_meters, cnn_output_size]
+        cnn_out = cnn_out.view(batch_size, max_meters, -1)
         
-        # Apply mask to handle padding
-        outputs = outputs * mask
+        # Apply masking before RNN to handle variable-length sequences
+        # The RNN will process all time steps, but we'll mask the outputs
         
-        return outputs
+        # Apply RNN
+        rnn_out, _ = self.rnn(cnn_out)
+        rnn_out = self.dropout(rnn_out)
+
+        # Apply output layer
+        output = self.output_layer(rnn_out)
+        output = self.sigmoid(output)
+        
+        # Apply mask to zero out padding
+        output = output * mask
+        
+        return output
 
 
 class CustomBCELoss(nn.Module):
-    """
-    Custom Binary Cross Entropy loss that handles masked values.
-    """
+    """Custom Binary Cross Entropy Loss with masking for padded values."""
     
     def __init__(self):
         super(CustomBCELoss, self).__init__()
         self.bce = nn.BCELoss(reduction='none')
         
-    def forward(self, outputs, targets):
+    def forward(self, predictions: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         """
+        Compute masked BCE loss.
+        
         Args:
-            outputs: Predictions of shape [batch_size, max_meters, 1]
-            targets: Ground truth of shape [batch_size, max_meters, 1]
+            predictions: Model predictions [batch_size, max_meters, 1]
+            targets: Target values [batch_size, max_meters, 1] with -1 for padding
             
         Returns:
-            Mean loss over non-masked values
+            Masked BCE loss value
         """
-        # Create mask for valid values (not -1)
+        # Create mask for valid targets (not -1)
         mask = (targets != -1).float()
         
-        # Ensure masked targets are valid for BCE (between 0 and 1)
-        valid_targets = targets * mask
+        # Convert -1 to 0 for BCE calculation
+        targets = torch.clamp(targets, min=0)
         
-        # Calculate BCE loss
-        loss = self.bce(outputs, valid_targets)
+        # Calculate BCE
+        bce_loss = self.bce(predictions, targets)
         
-        # Apply mask and calculate mean over non-masked values
-        masked_loss = loss * mask
-        n_valid = torch.sum(mask)
+        # Apply mask
+        masked_loss = bce_loss * mask
         
-        if n_valid > 0:
-            return torch.sum(masked_loss) / n_valid
-        else:
-            return torch.sum(masked_loss)  # Will be 0 if no valid elements 
+        # Return mean of masked values
+        return torch.sum(masked_loss) / torch.sum(mask) 
