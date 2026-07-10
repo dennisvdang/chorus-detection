@@ -217,8 +217,7 @@ def main():
 
         Paste a YouTube URL to analyze a song directly.
 
-        **Note:** The YouTube option is unlikely to work on this hosted demo —
-        YouTube blocks download requests from cloud servers. To use it,
+        **Note:** The YouTube option is likely blocked on this server-hosted demo. To use it,
         [install the app locally](https://github.com/dennisvdang/chorus-detection)
         and run it from your own machine.
         """)
