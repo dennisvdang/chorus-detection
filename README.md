@@ -15,7 +15,6 @@ The original TensorFlow implementation is preserved on the [`tensorflow`](../../
 - [Pre-trained model file](https://github.com/dennisvdang/chorus-detection/releases/download/pytorch-v1.0/crnn_v1.pt)
 - [Original model training notebook](notebooks/Automated-Chorus-Detection.ipynb)
 - [Music annotation process](docs/Data_Annotation_Guide.pdf)
-- [Project PDF writeup](docs/Capstone_Final_Report.pdf)
 
 ## Quick Installation
 
@@ -223,13 +222,6 @@ pip install pytest
 pytest tests/ -m "not slow"   # fast unit tests
 pytest tests/                 # includes the audio preprocessing integration test
 ```
-
-### Spectrogram Model (experimental)
-
-`pytorch_core/models/spectrogram_model.py` and the accompanying
-`scripts/train_spectrogram_model_v2.py` are an experimental 2D-CNN variant that
-learns directly from spectrograms rather than NMF-decomposed features. It is a
-work in progress and is not the validated CRNN port described above.
 
 ### Future Work
 
