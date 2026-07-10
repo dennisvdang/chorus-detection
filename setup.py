@@ -24,7 +24,7 @@ setup(
         "pyyaml>=6.0.0",
         "torch>=2.0.0",
         "streamlit>=1.22.0,<1.23.0",
-        "pytube>=15.0.0,<16.0.0",
+        "yt-dlp>=2024.10.0",
     ],
     extras_require={
         "dev": ["pytest>=7.0", "black", "flake8"],
@@ -39,9 +39,9 @@ setup(
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.9",
 )

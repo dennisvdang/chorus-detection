@@ -1,9 +1,10 @@
 # Requirements for the chorus detection pipeline and web app
-# (preprocessing, training, inference, streamlit UI). Python >= 3.8.
+# (preprocessing, training, inference, streamlit UI). Python >= 3.9;
+# 3.10 recommended (current yt-dlp releases require it).
 #
 # The original TensorFlow implementation lives on the `tensorflow` branch.
 
-# Core scientific stack (pins chosen for Python 3.8 compatibility)
+# Core scientific stack
 numpy>=1.24.0,<1.25.0
 scipy>=1.10.0,<1.11.0
 scikit-learn>=1.3.0,<1.4.0
@@ -23,7 +24,7 @@ ffmpeg-python>=0.2.0,<0.3.0
 
 # Web interface and audio acquisition
 streamlit>=1.22.0,<1.23.0
-pytube>=15.0.0,<16.0.0
+yt-dlp>=2024.10.0
 
 # Install the package itself for development
 -e .

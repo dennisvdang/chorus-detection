@@ -6,34 +6,44 @@ import os
 import shutil
 from functools import reduce
 
+import yt_dlp
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
-from pytube import YouTube
 
 # Constants
 AUDIO_TEMP_PATH = "output/temp"
 
 
 def extract_audio(url, output_path=AUDIO_TEMP_PATH):
-    """Downloads audio from YouTube URL and saves as MP3."""
-    try:
-        yt = YouTube(url)
-        video_title = yt.title
-        audio_stream = yt.streams.filter(only_audio=True).first()
-        if not audio_stream:
-            print("No audio stream found")
-            return None, None
+    """Downloads audio from a YouTube URL and saves it as MP3.
 
+    Returns:
+        Tuple of (path to the mp3 file, video title), or (None, None) on failure.
+    """
+    try:
         os.makedirs(output_path, exist_ok=True)
-        out_file = audio_stream.download(output_path)
-        base, _ = os.path.splitext(out_file)
-        audio_file = base + '.mp3'
-        if os.path.exists(audio_file):
-            os.remove(audio_file)
-        os.rename(out_file, audio_file)
-        return audio_file, video_title
+        ydl_opts = {
+            "format": "bestaudio/best",
+            "outtmpl": os.path.join(output_path, "%(id)s.%(ext)s"),
+            "postprocessors": [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192",
+            }],
+            "noplaylist": True,
+            "quiet": True,
+            "no_warnings": True,
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+
+        audio_file = os.path.join(output_path, f"{info['id']}.mp3")
+        if not os.path.exists(audio_file):
+            print("Audio download did not produce an mp3 file")
+            return None, None
+        return audio_file, info.get("title")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred while downloading audio: {e}")
         return None, None
 
 

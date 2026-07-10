@@ -206,8 +206,10 @@ def main():
         - OGG
         
         ## YouTube support
-        
-        ⚠️ YouTube functionality is likely to be unavailable due to YouTube's restrictions. Please use local audio files instead.
+
+        Paste a YouTube URL to analyze a song directly. Some videos may be
+        unavailable due to age, region, or copyright restrictions — if a
+        download fails, use a local audio file instead.
         """)
         
         st.header("Credits")
