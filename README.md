@@ -161,15 +161,18 @@ The model achieved strong results on the held-out test set as shown in the summa
 
 ## PyTorch Implementation (pytorch-modular branch)
 
-This branch contains a PyTorch implementation of the chorus detection model with a modular architecture that makes it easy to experiment with different model configurations, feature sets, and training parameters.
+This branch contains a PyTorch port of the chorus detection model with a modular
+architecture that makes it easy to experiment with different model
+configurations, feature sets, and training parameters. The port reproduces the
+original TensorFlow model's performance (test F1 0.862 vs 0.864); see
+[docs/pytorch_results.md](docs/pytorch_results.md) for the full comparison.
 
 ### Key Features
 
-- **Configuration-Driven:** All model and training parameters are defined in YAML configuration files
+- **Configuration-Driven:** Model and training parameters are defined in a YAML config file
 - **Modular Architecture:** Clean separation between data processing, model architecture, and training
 - **Reproducible Results:** Consistent random seed initialization for reproducible experiments
-- **Comprehensive Metrics:** Detailed training metrics including loss, accuracy, precision, recall, and F1 score
-- **Visualization:** Automatic plotting of training history and confusion matrices
+- **Comprehensive Metrics:** Loss, accuracy, precision, recall, and F1 score
 - **Checkpointing:** Save and resume training from checkpoints
 
 ### Project Structure
@@ -177,73 +180,75 @@ This branch contains a PyTorch implementation of the chorus detection model with
 ```
 chorus-detection/
 │
-├── config/                # Configuration files
-│   ├── default.yaml         # Default configuration
-│   ├── models/              # Model-specific configs
-│   └── features/            # Feature extraction configs
+├── config/
+│   └── default.yaml         # Model and training configuration
 │
-├── pytorch_core/          # Core PyTorch functionality
-│   ├── data/                # Dataset and data processing
-│   ├── models/              # Model architectures
-│   ├── training/            # Training and evaluation
-│   └── utils/               # Utility functions
+├── pytorch_core/            # Core PyTorch functionality
+│   ├── data/                # Dataset classes
+│   ├── models/              # Model architectures (crnn.py + spectrogram experiment)
+│   ├── training/            # Trainer with evaluation and checkpointing
+│   └── audio_processor.py   # Feature extraction and meter segmentation
 │
-├── scripts/               # Training and inference scripts
-│   ├── train.py             # Script for training
-│   └── inference.py         # Script for inference
+├── scripts/
+│   ├── preprocess.py        # Audio -> training segments and labels
+│   ├── train.py             # Training entry point
+│   └── inference.py         # Chorus detection on a new audio file
 │
-├── experiments/           # For tracking experiments
+├── tests/                   # pytest suite
 │
-├── models/                # Original TensorFlow models
-├── core/                  # Original TensorFlow code
-│
-└── ... (existing directories)
+├── models/                  # Original TensorFlow model (models/CRNN/)
+└── core/                    # Original TensorFlow inference code
 ```
 
-### Getting Started with PyTorch Implementation
+### Getting Started with the PyTorch Implementation
 
-1. **Setup Environment:**
+1. **Set up the environment:**
    ```bash
    conda env create -f environment.yml
    conda activate chorus-detection
-   pip install torch torchvision torchaudio
+   pip install -r requirements.txt
    ```
-
-2. **Train Model:**
+   For CUDA training, install the matching PyTorch build, e.g.:
    ```bash
-   python scripts/train.py --config config/default.yaml --segments_dir data/segments_V2 --labels_dir data/labels_V2
+   pip install torch --index-url https://download.pytorch.org/whl/cu121
    ```
 
-3. **Run Inference:**
+2. **Preprocess the dataset** (audio files in `data/audio/processed/{SongID}.mp3`
+   plus `data/clean_labeled.csv`). This writes per-song segment and label
+   pickles to `data/segments_V2/` and `data/labels_V2/`:
    ```bash
-   python scripts/inference.py --audio path/to/audio.mp3 --checkpoint checkpoints/best_model.pt
+   python scripts/preprocess.py
+   # smoke-test on a few songs first:
+   python scripts/preprocess.py --limit 3
    ```
 
-### Customizing the Model
+3. **Train the model:**
+   ```bash
+   python scripts/train.py --config config/default.yaml --checkpoint_dir models/pytorch
+   # on an 8 GB GPU, reduce the batch size:
+   python scripts/train.py --checkpoint_dir models/pytorch --batch_size 16 --device cuda
+   ```
 
-You can customize the model by creating new configuration files:
+4. **Run inference on a new song:**
+   ```bash
+   python scripts/inference.py --audio path/to/audio.mp3 \
+       --checkpoint models/pytorch/best_model.pt --output prediction.png
+   ```
 
-```yaml
-# config/models/custom_model.yaml
-data:
-  sr: 12000
-  hop_length: 128
-  
-model:
-  name: "crnn"
-  cnn:
-    filters: [64, 128, 256]
-    kernel_sizes: [5, 3, 3]
-  
-training:
-  batch_size: 16
-  epochs: 100
-```
+### Running the Tests
 
-Then train with your custom configuration:
 ```bash
-python scripts/train.py --config config/models/custom_model.yaml
+pip install pytest
+pytest tests/ -m "not slow"   # fast unit tests
+pytest tests/                 # includes the audio preprocessing integration test
 ```
+
+### Spectrogram Model (experimental)
+
+`pytorch_core/models/spectrogram_model.py` and the accompanying
+`scripts/train_spectrogram_model_v2.py` are an experimental 2D-CNN variant that
+learns directly from spectrograms rather than NMF-decomposed features. It is a
+work in progress and is not the validated CRNN port described above.
 
 ### Future Work
 
