@@ -49,6 +49,8 @@ def main():
                         help="Directory with label data")
     parser.add_argument("--checkpoint_dir", type=str, default="checkpoints",
                         help="Directory to save checkpoints")
+    parser.add_argument("--batch_size", type=int, default=None,
+                        help="Override the batch size from the config file")
     parser.add_argument("--resume", type=str, default=None,
                         help="Path to checkpoint to resume training from")
     parser.add_argument("--seed", type=int, default=42,
@@ -62,7 +64,9 @@ def main():
     
     # Load configuration
     config = load_config(args.config)
-    
+    if args.batch_size is not None:
+        config["training"]["batch_size"] = args.batch_size
+
     # Set device
     device = args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
