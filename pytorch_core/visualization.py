@@ -137,3 +137,85 @@ def plot_chorus_segments(audio_features, chorus_start_times, chorus_end_times,
     
     plt.show(block=False)
     return fig 
+
+def plot_snap_comparison(audio_features, raw_starts, raw_ends,
+                         snapped_starts, snapped_ends, downbeat_times,
+                         title=None, save_path=None, zoom_bars=4.0):
+    """
+    Plot the waveform with the downbeat grid and raw vs snapped chorus
+    boundaries, plus zoomed views around each snapped boundary.
+
+    Parameters:
+    - audio_features: AudioFeature object containing audio data
+    - raw_starts, raw_ends: Chorus boundaries from the meter-grid predictions
+    - snapped_starts, snapped_ends: Boundaries after downbeat snapping
+    - downbeat_times: Downbeat times in seconds (e.g. from Beat This!)
+    - title: Optional title for the plot
+    - save_path: Optional path to save the plot image
+    - zoom_bars: Half-width of each zoom panel, in bars
+
+    Returns:
+    - fig: The matplotlib figure object
+    """
+    downbeat_times = np.asarray(downbeat_times, dtype=float)
+    bar_length = float(np.median(np.diff(downbeat_times))) if downbeat_times.size > 1 else 2.0
+    duration = len(audio_features.y) / audio_features.sr
+
+    n_zoom = len(snapped_starts) + len(snapped_ends)
+    zoom_cols = max(n_zoom, 1)
+    fig = plt.figure(figsize=(14, 6 if n_zoom else 3.5), dpi=96)
+    grid = fig.add_gridspec(2 if n_zoom else 1, zoom_cols, height_ratios=[2, 1] if n_zoom else [1])
+
+    # Full-song overview
+    ax = fig.add_subplot(grid[0, :])
+    librosa.display.waveshow(audio_features.y, sr=audio_features.sr,
+                             alpha=0.5, ax=ax, color='steelblue')
+    for t in downbeat_times:
+        ax.axvline(x=t, color='grey', linestyle='--', linewidth=0.6, alpha=0.5)
+    for i, (s, e) in enumerate(zip(raw_starts, raw_ends)):
+        ax.axvspan(s, e, color='red', alpha=0.12, label='Raw chorus' if i == 0 else None)
+        ax.axvline(s, color='red', linestyle='--', linewidth=1.4)
+        ax.axvline(e, color='red', linestyle='--', linewidth=1.4)
+    for i, (s, e) in enumerate(zip(snapped_starts, snapped_ends)):
+        ax.axvspan(s, e, color='green', alpha=0.18, label='Snapped chorus' if i == 0 else None)
+        ax.axvline(s, color='green', linestyle='-', linewidth=1.4)
+        ax.axvline(e, color='green', linestyle='-', linewidth=1.4)
+    ax.set_xlim([0, duration])
+    ax.set_ylabel('Amplitude')
+    xticks = np.arange(0, duration, 10)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels([f"{int(t // 60)}:{int(t % 60):02d}" for t in xticks])
+    if title is None:
+        name = os.path.splitext(os.path.basename(audio_features.audio_path))[0]
+        title = f'Raw vs downbeat-snapped chorus boundaries: {name}'
+    ax.set_title(title)
+    ax.legend(loc='upper right', fontsize=8)
+
+    # Zoomed views around each snapped boundary
+    boundaries = ([(t, f'Start {i+1}') for i, t in enumerate(snapped_starts)] +
+                  [(t, f'End {i+1}') for i, t in enumerate(snapped_ends)])
+    boundaries.sort(key=lambda b: b[0])
+    raw_all = list(raw_starts) + list(raw_ends)
+    half = zoom_bars * bar_length
+    for col, (t, label) in enumerate(boundaries):
+        axz = fig.add_subplot(grid[1, col])
+        lo, hi = max(0.0, t - half), min(duration, t + half)
+        i0, i1 = int(lo * audio_features.sr), int(hi * audio_features.sr)
+        seg = audio_features.y[i0:i1]
+        axz.plot(np.linspace(lo, hi, len(seg)), seg, color='steelblue',
+                 alpha=0.6, linewidth=0.4)
+        for d in downbeat_times[(downbeat_times >= lo) & (downbeat_times <= hi)]:
+            axz.axvline(d, color='grey', linestyle='--', linewidth=0.8, alpha=0.6)
+        for r in [r for r in raw_all if lo <= r <= hi]:
+            axz.axvline(r, color='red', linestyle='--', linewidth=1.6)
+        axz.axvline(t, color='green', linestyle='-', linewidth=1.8)
+        axz.set_title(f'{label}  {int(t // 60)}:{t % 60:05.2f}', fontsize=8)
+        axz.set_xlim([lo, hi])
+        axz.set_yticks([])
+        axz.tick_params(axis='x', labelsize=6)
+
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, dpi=200, bbox_inches='tight')
+    plt.show(block=False)
+    return fig
