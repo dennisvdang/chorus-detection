@@ -74,25 +74,99 @@ def snap_to_downbeats(times: Sequence[float], downbeats: np.ndarray,
     return snapped
 
 
+def energy_snap_to_downbeats(times: Sequence[float], downbeats: np.ndarray,
+                             energy: np.ndarray, energy_times: np.ndarray,
+                             direction: int = 1,
+                             search_bars: float = 2.0) -> np.ndarray:
+    """Snap each time to the best downbeat within +/- search_bars.
+
+    Rather than snapping to the nearest downbeat, this searches all downbeats
+    within a window of the boundary and picks the one with the largest energy
+    change in the given direction, so a chorus/drop onset predicted a bar early
+    or late still lands on the actual energy rise.
+
+    Args:
+        times: Boundary times in seconds.
+        downbeats: Downbeat times in seconds.
+        energy: Energy envelope (e.g. RMS), 1-D.
+        energy_times: Time in seconds of each energy sample, parallel to energy.
+        direction: +1 to favor energy rises (segment starts, drops),
+            -1 to favor energy falls (segment ends).
+        search_bars: Half-width of the search window, in bars.
+
+    Returns:
+        Array of snapped times, same length as `times`. Falls back to the
+        nearest downbeat when no candidate shows an energy change in the
+        requested direction.
+    """
+    times = np.asarray(times, dtype=float)
+    downbeats = np.asarray(downbeats, dtype=float)
+    energy = np.asarray(energy, dtype=float).ravel()
+    energy_times = np.asarray(energy_times, dtype=float)
+    if times.size == 0 or downbeats.size == 0:
+        return times.copy()
+    if downbeats.size < 2 or energy.size == 0:
+        return snap_to_downbeats(times, downbeats)
+
+    bar_length = float(np.median(np.diff(downbeats)))
+    window = search_bars * bar_length
+
+    snapped = np.empty_like(times)
+    for i, t in enumerate(times):
+        candidates = downbeats[(downbeats >= t - window) & (downbeats <= t + window)]
+        if candidates.size == 0:
+            snapped[i] = downbeats[np.abs(downbeats - t).argmin()]
+            continue
+
+        scores = np.full(candidates.size, -np.inf)
+        for j, d in enumerate(candidates):
+            before = energy[(energy_times >= d - bar_length) & (energy_times < d)]
+            after = energy[(energy_times >= d) & (energy_times < d + bar_length)]
+            if before.size and after.size:
+                scores[j] = direction * (after.mean() - before.mean())
+
+        if np.max(scores) > 0:
+            snapped[i] = candidates[scores.argmax()]
+        else:
+            # No energy change in the requested direction; keep the nearest
+            snapped[i] = candidates[np.abs(candidates - t).argmin()]
+    return snapped
+
+
 def snap_chorus_segments(start_times: Sequence[float], end_times: Sequence[float],
                          downbeats: np.ndarray,
-                         max_shift: Optional[float] = None) -> Tuple[List[float], List[float]]:
+                         max_shift: Optional[float] = None,
+                         energy: Optional[np.ndarray] = None,
+                         energy_times: Optional[np.ndarray] = None,
+                         search_bars: float = 2.0) -> Tuple[List[float], List[float]]:
     """Snap chorus segment boundaries to downbeats.
 
-    Segments that collapse (end <= start) after snapping are dropped, and
-    segments that end up overlapping or touching are merged.
+    When an energy envelope is given, boundaries snap to the downbeat within
+    +/- search_bars showing the strongest energy rise (starts) or fall (ends);
+    otherwise they snap to the nearest downbeat. Segments that collapse
+    (end <= start) after snapping are dropped, and segments that end up
+    overlapping or touching are merged.
 
     Args:
         start_times: Chorus start times in seconds.
         end_times: Chorus end times in seconds, parallel to start_times.
         downbeats: Downbeat times in seconds.
-        max_shift: Passed through to snap_to_downbeats().
+        max_shift: Passed through to snap_to_downbeats() (nearest-snap only).
+        energy: Optional energy envelope (e.g. RMS), 1-D.
+        energy_times: Time of each energy sample, required with `energy`.
+        search_bars: Half-width of the energy search window, in bars.
 
     Returns:
         Tuple of (snapped_start_times, snapped_end_times) as lists.
     """
-    starts = snap_to_downbeats(start_times, downbeats, max_shift=max_shift)
-    ends = snap_to_downbeats(end_times, downbeats, max_shift=max_shift)
+    if energy is not None and energy_times is not None:
+        starts = energy_snap_to_downbeats(start_times, downbeats, energy, energy_times,
+                                          direction=1, search_bars=search_bars)
+        ends = energy_snap_to_downbeats(end_times, downbeats, energy, energy_times,
+                                        direction=-1, search_bars=search_bars)
+    else:
+        starts = snap_to_downbeats(start_times, downbeats, max_shift=max_shift)
+        ends = snap_to_downbeats(end_times, downbeats, max_shift=max_shift)
 
     out_starts: List[float] = []
     out_ends: List[float] = []

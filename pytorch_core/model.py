@@ -129,7 +129,8 @@ def make_predictions(model, processed_audio, audio_features, snap_downbeats=True
 
         if snap_downbeats:
             chorus_start_times, chorus_end_times = snap_boundaries_to_downbeats(
-                chorus_start_times, chorus_end_times, audio_features.audio_path)
+                chorus_start_times, chorus_end_times, audio_features.audio_path,
+                audio_features=audio_features)
 
         # Display chorus segments
         print("\nDetected chorus sections:")
@@ -145,11 +146,15 @@ def make_predictions(model, processed_audio, audio_features, snap_downbeats=True
 
 
 def snap_boundaries_to_downbeats(chorus_start_times, chorus_end_times, audio_path,
-                                 device="cpu"):
+                                 device="cpu", audio_features=None, search_bars=2.0):
     """Snap chorus boundaries to Beat This! downbeats, if the tracker is available.
 
-    Returns the boundaries unchanged when beat_this is not installed or the
-    tracker fails, so snapping never breaks plain chorus detection.
+    When audio_features carries an RMS envelope, each boundary snaps to the
+    downbeat within +/- search_bars with the strongest energy rise (starts) or
+    fall (ends), correcting boundaries that are off by up to a full bar or two.
+    Without RMS it snaps to the nearest downbeat. Returns the boundaries
+    unchanged when beat_this is not installed or the tracker fails, so
+    snapping never breaks plain chorus detection.
     """
     if not chorus_start_times:
         return chorus_start_times, chorus_end_times
@@ -162,8 +167,18 @@ def snap_boundaries_to_downbeats(chorus_start_times, chorus_end_times, audio_pat
         if len(downbeat_times) == 0:
             print("No downbeats detected; skipping downbeat snapping.")
             return chorus_start_times, chorus_end_times
+
+        energy = energy_times = None
+        rms = getattr(audio_features, "rms", None) if audio_features is not None else None
+        if rms is not None:
+            energy = np.asarray(rms).ravel()
+            energy_times = librosa.frames_to_time(
+                np.arange(energy.size), sr=audio_features.sr,
+                hop_length=audio_features.hop_length)
+
         return downbeat_tracking.snap_chorus_segments(
-            chorus_start_times, chorus_end_times, downbeat_times)
+            chorus_start_times, chorus_end_times, downbeat_times,
+            energy=energy, energy_times=energy_times, search_bars=search_bars)
     except Exception as e:
         print(f"Downbeat snapping failed ({e}); using unsnapped boundaries.")
         return chorus_start_times, chorus_end_times

@@ -79,7 +79,7 @@ def smooth_predictions(predictions, window_size=3, min_segment_length=2):
 
 
 def detect_chorus(model, audio_path, config, device='cpu', bpm=None, time_signature=None,
-                  snap_downbeats=True):
+                  snap_downbeats=True, snap_window=2.0):
     """
     Detect chorus segments in audio file using the trained model.
 
@@ -92,6 +92,7 @@ def detect_chorus(model, audio_path, config, device='cpu', bpm=None, time_signat
         time_signature: Optional known time signature (beats per meter)
         snap_downbeats: Snap chorus boundaries to Beat This! downbeats when
             the beat_this package is installed
+        snap_window: Half-width in bars of the energy-based snap search window
 
     Returns:
         Tuple of (predictions, chorus_start_times, chorus_end_times, audio_features)
@@ -151,7 +152,8 @@ def detect_chorus(model, audio_path, config, device='cpu', bpm=None, time_signat
 
         if snap_downbeats:
             chorus_start_times, chorus_end_times = snap_boundaries_to_downbeats(
-                chorus_start_times, chorus_end_times, audio_path, device=device)
+                chorus_start_times, chorus_end_times, audio_path, device=device,
+                audio_features=audio_features, search_bars=snap_window)
 
         # Display chorus sections
         print("\nDetected chorus sections:")
@@ -241,6 +243,8 @@ def main():
                         help="Known time signature (otherwise 4/4)")
     parser.add_argument("--no-snap", action="store_true",
                         help="Disable snapping chorus boundaries to Beat This! downbeats")
+    parser.add_argument("--snap-window", type=float, default=2.0,
+                        help="Half-width in bars of the downbeat snap search window")
     args = parser.parse_args()
     
     # Check if audio file exists
@@ -265,7 +269,7 @@ def main():
     predictions, chorus_start_times, chorus_end_times, audio_features = detect_chorus(
         model, args.audio, config, device=args.device,
         bpm=args.bpm, time_signature=args.time_signature,
-        snap_downbeats=not args.no_snap)
+        snap_downbeats=not args.no_snap, snap_window=args.snap_window)
     
     if predictions is None:
         print("Error detecting chorus.")

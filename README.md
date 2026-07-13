@@ -218,8 +218,12 @@ against the TensorFlow baseline.
    Chorus boundaries are snapped to downbeats detected by the
    [Beat This!](https://github.com/CPJKU/beat_this) tracker (installed via
    `requirements.txt`), which corrects boundaries that land a beat or bar off
-   the true downbeat grid. Pass `--no-snap` to disable snapping and use the
-   raw meter-grid boundaries.
+   the true downbeat grid. Each boundary searches the downbeats within
+   ±2 bars (configurable via `--snap-window`) and picks the one with the
+   strongest RMS energy rise (chorus starts) or fall (chorus ends), so a
+   drop predicted a bar early or late still lands on the actual energy
+   onset. Pass `--no-snap` to disable snapping and use the raw meter-grid
+   boundaries.
 
 ### Running the Tests
 
