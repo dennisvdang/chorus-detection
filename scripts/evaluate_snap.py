@@ -90,8 +90,10 @@ def evaluate_song(song_id, song_df, model, config, device):
 
     # Labels were annotated on the processed audio, so do not re-trim.
     # Tempo/time signature come from the CSV like the training preprocessing.
-    bpm = song_df["sp_tempo"].iloc[0] or None
-    time_signature = int(song_df["sp_time_signature"].iloc[0] or 4)
+    bpm = song_df["sp_tempo"].iloc[0]
+    bpm = None if pd.isna(bpm) or bpm == 0 else float(bpm)
+    time_signature = song_df["sp_time_signature"].iloc[0]
+    time_signature = 4 if pd.isna(time_signature) or time_signature == 0 else int(time_signature)
     processed_audio, audio_features = process_audio(
         audio_path, trim_silence=False,
         sr=config["data"]["sr"], hop_length=config["data"]["hop_length"],
