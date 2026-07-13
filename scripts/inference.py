@@ -18,6 +18,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pytorch_core.models.crnn import CRNN
 from pytorch_core.audio_processor import process_audio
+from pytorch_core.model import snap_boundaries_to_downbeats
 
 
 def load_config(config_path):
@@ -77,7 +78,8 @@ def smooth_predictions(predictions, window_size=3, min_segment_length=2):
     return binary_smoothed
 
 
-def detect_chorus(model, audio_path, config, device='cpu', bpm=None, time_signature=None):
+def detect_chorus(model, audio_path, config, device='cpu', bpm=None, time_signature=None,
+                  snap_downbeats=True):
     """
     Detect chorus segments in audio file using the trained model.
 
@@ -88,6 +90,8 @@ def detect_chorus(model, audio_path, config, device='cpu', bpm=None, time_signat
         device: Device to run inference on
         bpm: Optional known tempo; beat-tracker estimate is used when None
         time_signature: Optional known time signature (beats per meter)
+        snap_downbeats: Snap chorus boundaries to Beat This! downbeats when
+            the beat_this package is installed
 
     Returns:
         Tuple of (predictions, chorus_start_times, chorus_end_times, audio_features)
@@ -140,18 +144,21 @@ def detect_chorus(model, audio_path, config, device='cpu', bpm=None, time_signat
                 groups.append(current_group)
                 current_group = [chorus_indices[i]]
         groups.append(current_group)
-        
+
+        for group in groups:
+            chorus_start_times.append(meter_grid_times[group[0]])
+            chorus_end_times.append(meter_grid_times[group[-1] + 1])
+
+        if snap_downbeats:
+            chorus_start_times, chorus_end_times = snap_boundaries_to_downbeats(
+                chorus_start_times, chorus_end_times, audio_path, device=device)
+
         # Display chorus sections
         print("\nDetected chorus sections:")
-        for i, group in enumerate(groups):
-            start_time = meter_grid_times[group[0]]
-            end_time = meter_grid_times[group[-1] + 1]
-            chorus_start_times.append(start_time)
-            chorus_end_times.append(end_time)
-            
+        for i, (start_time, end_time) in enumerate(zip(chorus_start_times, chorus_end_times)):
             start_min, start_sec = divmod(start_time, 60)
             end_min, end_sec = divmod(end_time, 60)
-            
+
             print(f"Chorus {i+1}: {int(start_min)}:{start_sec:05.2f} - {int(end_min)}:{end_sec:05.2f}")
     else:
         print("No choruses detected in this audio file.")
@@ -232,6 +239,8 @@ def main():
                         help="Known tempo of the song (otherwise estimated)")
     parser.add_argument("--time-signature", type=int, default=None,
                         help="Known time signature (otherwise 4/4)")
+    parser.add_argument("--no-snap", action="store_true",
+                        help="Disable snapping chorus boundaries to Beat This! downbeats")
     args = parser.parse_args()
     
     # Check if audio file exists
@@ -255,7 +264,8 @@ def main():
     print(f"Detecting chorus in {args.audio}...")
     predictions, chorus_start_times, chorus_end_times, audio_features = detect_chorus(
         model, args.audio, config, device=args.device,
-        bpm=args.bpm, time_signature=args.time_signature)
+        bpm=args.bpm, time_signature=args.time_signature,
+        snap_downbeats=not args.no_snap)
     
     if predictions is None:
         print("Error detecting chorus.")

@@ -10,6 +10,7 @@ import numpy as np
 import torch
 
 from pytorch_core.models.crnn import CRNN
+from pytorch_core import downbeats as downbeat_tracking
 
 # Default model location; downloaded from the GitHub release when missing
 MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -81,8 +82,13 @@ def smooth_predictions(data: np.ndarray) -> np.ndarray:
     return binary_smoothed
 
 
-def make_predictions(model, processed_audio, audio_features):
-    """Make chorus predictions using the loaded model."""
+def make_predictions(model, processed_audio, audio_features, snap_downbeats=True):
+    """Make chorus predictions using the loaded model.
+
+    When snap_downbeats is True and the optional beat_this package is
+    installed, chorus boundaries are snapped to downbeats tracked by
+    Beat This! to correct meter-grid phase errors.
+    """
     # Generate predictions
     audio_tensor = torch.tensor(processed_audio, dtype=torch.float32)
     with torch.no_grad():
@@ -117,14 +123,17 @@ def make_predictions(model, processed_audio, audio_features):
                 current_group = [chorus_indices[i]]
         groups.append(current_group)
 
+        for group in groups:
+            chorus_start_times.append(meter_grid_times[group[0]])
+            chorus_end_times.append(meter_grid_times[group[-1] + 1])
+
+        if snap_downbeats:
+            chorus_start_times, chorus_end_times = snap_boundaries_to_downbeats(
+                chorus_start_times, chorus_end_times, audio_features.audio_path)
+
         # Display chorus segments
         print("\nDetected chorus sections:")
-        for i, group in enumerate(groups):
-            start_time = meter_grid_times[group[0]]
-            end_time = meter_grid_times[group[-1] + 1]
-            chorus_start_times.append(start_time)
-            chorus_end_times.append(end_time)
-
+        for i, (start_time, end_time) in enumerate(zip(chorus_start_times, chorus_end_times)):
             start_min, start_sec = divmod(start_time, 60)
             end_min, end_sec = divmod(end_time, 60)
 
@@ -133,3 +142,28 @@ def make_predictions(model, processed_audio, audio_features):
         print("No choruses detected in this audio file.")
 
     return smoothed_predictions, chorus_start_times, chorus_end_times
+
+
+def snap_boundaries_to_downbeats(chorus_start_times, chorus_end_times, audio_path,
+                                 device="cpu"):
+    """Snap chorus boundaries to Beat This! downbeats, if the tracker is available.
+
+    Returns the boundaries unchanged when beat_this is not installed or the
+    tracker fails, so snapping never breaks plain chorus detection.
+    """
+    if not chorus_start_times:
+        return chorus_start_times, chorus_end_times
+    if not downbeat_tracking.is_available():
+        print("beat_this not installed; skipping downbeat snapping "
+              "(pip install https://github.com/CPJKU/beat_this/archive/main.zip)")
+        return chorus_start_times, chorus_end_times
+    try:
+        _, downbeat_times = downbeat_tracking.track_downbeats(audio_path, device=device)
+        if len(downbeat_times) == 0:
+            print("No downbeats detected; skipping downbeat snapping.")
+            return chorus_start_times, chorus_end_times
+        return downbeat_tracking.snap_chorus_segments(
+            chorus_start_times, chorus_end_times, downbeat_times)
+    except Exception as e:
+        print(f"Downbeat snapping failed ({e}); using unsnapped boundaries.")
+        return chorus_start_times, chorus_end_times

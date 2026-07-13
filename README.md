@@ -215,6 +215,12 @@ against the TensorFlow baseline.
        --checkpoint models/pytorch/best_model.pt --output prediction.png
    ```
 
+   Chorus boundaries are snapped to downbeats detected by the
+   [Beat This!](https://github.com/CPJKU/beat_this) tracker (installed via
+   `requirements.txt`), which corrects boundaries that land a beat or bar off
+   the true downbeat grid. Pass `--no-snap` to disable snapping and use the
+   raw meter-grid boundaries.
+
 ### Running the Tests
 
 ```bash

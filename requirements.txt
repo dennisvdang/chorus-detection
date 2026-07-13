@@ -18,6 +18,9 @@ pyyaml>=6.0.0
 
 # Audio processing
 librosa>=0.10.0,<0.11.0
+# Beat This! downbeat tracker (ISMIR 2024), used to snap chorus boundaries
+# to downbeats; not on PyPI, installed from GitHub
+beat_this @ https://github.com/CPJKU/beat_this/archive/main.zip
 soundfile>=0.12.1,<0.13.0
 pydub>=0.25.1,<0.26.0
 ffmpeg-python>=0.2.0,<0.3.0
