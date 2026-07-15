@@ -271,7 +271,9 @@ class AudioFeature:
         return self.tempo, self.beats
     
     def create_meter_grid(self, bpm: Optional[float] = None,
-                          time_signature: Optional[int] = None) -> np.ndarray:
+                          time_signature: Optional[int] = None,
+                          grid_source: str = "librosa",
+                          device: str = "cpu") -> np.ndarray:
         """Create a grid based on the meter of the song, using tempo and beats.
 
         Args:
@@ -279,6 +281,11 @@ class AudioFeature:
                 [70, 140] like the original training preprocessing. When None,
                 the tempo detected by detect_beats() is used.
             time_signature: Optional known time signature (beats per meter).
+            grid_source: "librosa" extrapolates a single tempo over the song
+                (original behavior); "beat_this" builds the grid from downbeats
+                tracked by Beat This!. Inference must use the same grid_source
+                the model was trained on.
+            device: Torch device for the Beat This! tracker.
         """
         if 'beats' not in self._extracted_features:
             self.detect_beats()
@@ -288,7 +295,15 @@ class AudioFeature:
         if time_signature is not None:
             self.time_signature = int(time_signature)
 
-        self.meter_grid = self._create_meter_grid()
+        if grid_source == "beat_this":
+            from pytorch_core.downbeats import create_downbeat_meter_grid, track_downbeats
+            _, downbeats = track_downbeats(self.audio_path, device=device)
+            if len(downbeats) < 2:
+                raise ValueError("beat_this returned <2 downbeats")
+            self.meter_grid = create_downbeat_meter_grid(
+                downbeats, self.n_frames, self.sr, self.hop_length)
+        else:
+            self.meter_grid = self._create_meter_grid()
         return self.meter_grid
 
     def _create_meter_grid(self) -> np.ndarray:
@@ -384,7 +399,8 @@ def pad_song(encoded_segments: List[np.ndarray], max_frames: int = MAX_FRAMES,
 
 
 def process_audio(audio_path, trim_silence=True, sr=SR, hop_length=HOP_LENGTH,
-                  extract_spectrogram_only=False, bpm=None, time_signature=None):
+                  extract_spectrogram_only=False, bpm=None, time_signature=None,
+                  grid_source="librosa", device="cpu"):
     """
     Process an audio file for chorus detection.
 
@@ -396,6 +412,9 @@ def process_audio(audio_path, trim_silence=True, sr=SR, hop_length=HOP_LENGTH,
         extract_spectrogram_only: If True, only extract raw spectrograms for the spectrogram-based model
         bpm: Optional known tempo; falls back to beat-tracker estimate when None
         time_signature: Optional known time signature (beats per meter)
+        grid_source: Meter grid source, "librosa" or "beat_this". Must match the
+            grid the model was trained on.
+        device: Torch device for the Beat This! tracker (beat_this grid only)
 
     Returns:
         Tuple of (padded_song, audio_features)
@@ -419,7 +438,8 @@ def process_audio(audio_path, trim_silence=True, sr=SR, hop_length=HOP_LENGTH,
             audio_features.extract_features()
         
         # Create meter grid and segment
-        meter_grid = audio_features.create_meter_grid(bpm=bpm, time_signature=time_signature)
+        meter_grid = audio_features.create_meter_grid(bpm=bpm, time_signature=time_signature,
+                                                      grid_source=grid_source, device=device)
         feature_segments = segment_data_meters(audio_features.combined_features, meter_grid)
         encoded_segments = apply_hierarchical_positional_encoding(feature_segments)
         

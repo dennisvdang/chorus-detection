@@ -14,6 +14,7 @@ before calling track_downbeats().
 
 from typing import List, Optional, Sequence, Tuple
 
+import librosa
 import numpy as np
 
 # Cached tracker instance keyed by device, since loading the checkpoint is slow
@@ -46,6 +47,21 @@ def track_downbeats(audio_path: str, device: str = "cpu") -> Tuple[np.ndarray, n
         _trackers[device] = File2Beats(checkpoint_path="final0", device=device, dbn=False)
     beats, downbeats = _trackers[device](audio_path)
     return np.asarray(beats, dtype=float), np.asarray(downbeats, dtype=float)
+
+
+def create_downbeat_meter_grid(downbeat_times, n_frames, sr, hop_length):
+    """Build a meter grid (frame indices) from tracked downbeats.
+
+    Each downbeat is a bar line, so unlike the librosa grid this needs no
+    global-tempo extrapolation or 4/4 assumption. The result matches the
+    contract of scripts.preprocess.create_meter_grid: starts at frame 0, ends
+    at n_frames, strictly increasing.
+    """
+    downbeat_times = np.asarray(downbeat_times, dtype=float)
+    frames = librosa.time_to_frames(downbeat_times, sr=sr, hop_length=hop_length)
+    frames = frames[(frames > 0) & (frames < n_frames)]
+    grid = np.concatenate(([0], np.unique(frames), [n_frames])).astype(int)
+    return np.unique(grid)
 
 
 def snap_to_downbeats(times: Sequence[float], downbeats: np.ndarray,

@@ -173,8 +173,17 @@ def extract_combined_features(y: np.ndarray, y_harm: np.ndarray, y_perc: np.ndar
 
 
 def process_song(song_id, song_df: pd.DataFrame, audio_path: str,
-                 segments_dir: str, labels_dir: str) -> Tuple[int, int]:
+                 segments_dir: str, labels_dir: str,
+                 grid_source: str = "librosa", device: str = "cpu") -> Tuple[int, int]:
     """Process a single song and write its segment/label pickles.
+
+    Args:
+        grid_source: "librosa" builds the meter grid by extrapolating a single
+            tempo over the song (original behavior); "beat_this" builds it from
+            downbeats tracked by Beat This!, which handles metrical irregularity
+            without a 4/4 prior.
+        device: Torch device for the Beat This! tracker when grid_source is
+            "beat_this".
 
     Returns:
         Tuple of (n_meters, max_frames_per_meter) for dataset statistics.
@@ -192,8 +201,16 @@ def process_song(song_id, song_df: pd.DataFrame, audio_path: str,
     bpm = song_df['sp_tempo'].fillna(tempo).replace(0, tempo).clip(lower=70, upper=140).values[0]
     time_signature = int(song_df['sp_time_signature'].fillna(4).replace(0, 4).values[0])
 
-    meter_grid = create_meter_grid(beats, bpm, TARGET_SR, HOP_LENGTH,
-                                   len(combined_features), time_signature)
+    if grid_source == "beat_this":
+        from pytorch_core.downbeats import create_downbeat_meter_grid, track_downbeats
+        _, downbeats = track_downbeats(audio_path, device=device)
+        if len(downbeats) < 2:
+            raise ValueError("beat_this returned <2 downbeats")
+        meter_grid = create_downbeat_meter_grid(
+            downbeats, len(combined_features), TARGET_SR, HOP_LENGTH)
+    else:
+        meter_grid = create_meter_grid(beats, bpm, TARGET_SR, HOP_LENGTH,
+                                       len(combined_features), time_signature)
     aligned_labels = generate_and_align_labels(song_df, sr=TARGET_SR, hop_length=HOP_LENGTH,
                                                n_frames=len(combined_features),
                                                meter_grid_frames=meter_grid).astype(np.int32)
@@ -231,6 +248,10 @@ def main():
                         help="Only process these song IDs")
     parser.add_argument("--overwrite", action="store_true",
                         help="Reprocess songs whose output pickles already exist")
+    parser.add_argument("--grid-source", choices=["librosa", "beat_this"], default="librosa",
+                        help="Meter grid source: librosa tempo extrapolation or Beat This! downbeats")
+    parser.add_argument("--device", default="cpu",
+                        help="Torch device for the Beat This! tracker (beat_this grid only)")
     args = parser.parse_args()
 
     df = pd.read_csv(args.csv)
@@ -262,7 +283,8 @@ def main():
         try:
             song_df = df.loc[df['SongID'] == song_id]
             n_meters, max_frames = process_song(song_id, song_df, audio_path,
-                                                args.segments_dir, args.labels_dir)
+                                                args.segments_dir, args.labels_dir,
+                                                grid_source=args.grid_source, device=args.device)
             max_meters_seen = max(max_meters_seen, n_meters)
             max_frames_seen = max(max_frames_seen, max_frames)
             processed += 1
