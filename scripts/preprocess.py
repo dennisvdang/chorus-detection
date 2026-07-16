@@ -134,29 +134,41 @@ def apply_hierarchical_positional_encoding(segments: List[np.ndarray]) -> List[n
 
 
 def extract_combined_features(y: np.ndarray, y_harm: np.ndarray, y_perc: np.ndarray,
-                              sr: int, hop_length: int) -> Tuple[np.ndarray, np.ndarray]:
+                              sr: int, hop_length: int,
+                              nmf_device: str = None) -> Tuple[np.ndarray, np.ndarray]:
     """Extract, decompose, standardize, and weight all features for one song.
+
+    Args:
+        nmf_device: When set (e.g. "cuda"), run the four NMF fits with the
+            torch implementation on that device instead of sklearn's CPU
+            solver. Same init, loss, and component sorting.
 
     Returns:
         Tuple of (combined_features [n_frames, 15], onset_env)
     """
+    if nmf_device:
+        from pytorch_core.nmf_torch import decompose as _nmf
+    else:
+        def _nmf(S, n_components, sort=True, device=None):
+            return librosa.decompose.decompose(S, n_components=n_components, sort=sort)
+
     S = np.abs(librosa.stft(y, hop_length=hop_length))
     rms = librosa.feature.rms(S=S).astype(np.float32)
 
     mel = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, hop_length=hop_length)
-    mel_acts = librosa.decompose.decompose(mel, n_components=3, sort=True)[1].astype(np.float32)
+    mel_acts = _nmf(mel, 3, sort=True, device=nmf_device)[1].astype(np.float32)
 
     chromagram = calculate_ki_chroma(y_harm, sr, hop_length).astype(np.float32)
-    chroma_acts = librosa.decompose.decompose(chromagram, n_components=4, sort=True)[1].astype(np.float32)
+    chroma_acts = _nmf(chromagram, 4, sort=True, device=nmf_device)[1].astype(np.float32)
 
     onset_env = librosa.onset.onset_strength(y=y_perc, sr=sr, hop_length=hop_length)
     tempogram = np.clip(librosa.feature.tempogram(onset_envelope=onset_env,
                                                   sr=sr, hop_length=hop_length), 0, None)
-    tempogram_acts = librosa.decompose.decompose(tempogram, n_components=3, sort=True)[1].astype(np.float32)
+    tempogram_acts = _nmf(tempogram, 3, sort=True, device=nmf_device)[1].astype(np.float32)
 
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=20, hop_length=hop_length)
     mfccs += abs(np.min(mfccs))
-    mfcc_acts = librosa.decompose.decompose(mfccs, n_components=4, sort=True)[1].astype(np.float32)
+    mfcc_acts = _nmf(mfccs, 4, sort=True, device=nmf_device)[1].astype(np.float32)
 
     features = [rms, mel_acts, chroma_acts, tempogram_acts, mfcc_acts]
     feature_names = ['rms', 'mel_acts', 'chroma_acts', 'tempogram_acts', 'mfcc_acts']
@@ -174,7 +186,8 @@ def extract_combined_features(y: np.ndarray, y_harm: np.ndarray, y_perc: np.ndar
 
 def process_song(song_id, song_df: pd.DataFrame, audio_path: str,
                  segments_dir: str, labels_dir: str,
-                 grid_source: str = "librosa", device: str = "cpu") -> Tuple[int, int]:
+                 grid_source: str = "librosa", device: str = "cpu",
+                 nmf_device: str = None) -> Tuple[int, int]:
     """Process a single song and write its segment/label pickles.
 
     Args:
@@ -184,6 +197,7 @@ def process_song(song_id, song_df: pd.DataFrame, audio_path: str,
             without a 4/4 prior.
         device: Torch device for the Beat This! tracker when grid_source is
             "beat_this".
+        nmf_device: Torch device for the NMF fits; None keeps sklearn on CPU.
 
     Returns:
         Tuple of (n_meters, max_frames_per_meter) for dataset statistics.
@@ -191,7 +205,8 @@ def process_song(song_id, song_df: pd.DataFrame, audio_path: str,
     y, _ = librosa.load(audio_path, sr=TARGET_SR)
     y_harm, y_perc = librosa.effects.hpss(y)
 
-    combined_features, onset_env = extract_combined_features(y, y_harm, y_perc, TARGET_SR, HOP_LENGTH)
+    combined_features, onset_env = extract_combined_features(y, y_harm, y_perc, TARGET_SR, HOP_LENGTH,
+                                                             nmf_device=nmf_device)
 
     tempo, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=TARGET_SR, hop_length=HOP_LENGTH)
     tempo = float(np.atleast_1d(tempo)[0])
@@ -252,6 +267,8 @@ def main():
                         help="Meter grid source: librosa tempo extrapolation or Beat This! downbeats")
     parser.add_argument("--device", default="cpu",
                         help="Torch device for the Beat This! tracker (beat_this grid only)")
+    parser.add_argument("--nmf-device", default=None,
+                        help="Torch device for NMF fits (e.g. cuda); default keeps sklearn on CPU")
     args = parser.parse_args()
 
     df = pd.read_csv(args.csv)
@@ -284,7 +301,8 @@ def main():
             song_df = df.loc[df['SongID'] == song_id]
             n_meters, max_frames = process_song(song_id, song_df, audio_path,
                                                 args.segments_dir, args.labels_dir,
-                                                grid_source=args.grid_source, device=args.device)
+                                                grid_source=args.grid_source, device=args.device,
+                                                nmf_device=args.nmf_device)
             max_meters_seen = max(max_meters_seen, n_meters)
             max_frames_seen = max(max_frames_seen, max_frames)
             processed += 1
