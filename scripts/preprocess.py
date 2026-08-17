@@ -267,6 +267,14 @@ def process_song(song_id, song_df: pd.DataFrame, audio_path: str,
     return len(encoded_segments), max_frames
 
 
+def _process_one_song(song_id, audio_path, df, args, nmf_device):
+    """Worker entry point for --workers. Must be importable, so not nested."""
+    return process_song(song_id, df.loc[df['SongID'] == song_id], audio_path,
+                        args.segments_dir, args.labels_dir,
+                        grid_source=args.grid_source, device=args.device,
+                        nmf_device=nmf_device, tempo_source=args.tempo_source)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Preprocess audio into training segments and labels")
     parser.add_argument("--csv", type=str, default="data/clean_labeled.csv",
@@ -289,6 +297,13 @@ def main():
                         help="Torch device for the Beat This! tracker (beat_this grid only)")
     parser.add_argument("--nmf-device", default=None,
                         help="Torch device for NMF fits (e.g. cuda); default keeps sklearn on CPU")
+    parser.add_argument("--workers", type=int, default=1,
+                        help="Process this many songs at once. Each song is "
+                             "independent, and the per-song work is mostly "
+                             "single-threaded CPU transforms, so this scales "
+                             "nearly linearly with cores. Forces the NMF fits "
+                             "onto the CPU, because one CUDA context per "
+                             "worker wastes more than it saves.")
     parser.add_argument("--tempo-source", choices=["dataset", "estimated"], default="dataset",
                         help="Tempo for the extrapolated grid: 'dataset' reads the per-song "
                              "Spotify tempo from the CSV (original behavior); 'estimated' "
@@ -310,30 +325,60 @@ def main():
     processed, skipped, failed = 0, 0, []
     max_meters_seen, max_frames_seen = 0, 0
 
-    for song_id in tqdm(song_ids, desc="Preprocessing"):
+    # Decide what actually needs doing before spending any workers on it.
+    todo = []
+    for song_id in song_ids:
         segments_path = os.path.join(args.segments_dir, f"{song_id}_data.pkl")
         labels_path = os.path.join(args.labels_dir, f"{song_id}_labels.pkl")
         if not args.overwrite and os.path.exists(segments_path) and os.path.exists(labels_path):
             skipped += 1
             continue
-
         audio_path = os.path.join(args.audio_dir, f"{song_id}.mp3")
         if not os.path.exists(audio_path):
             failed.append((song_id, "audio file not found"))
             continue
+        todo.append((song_id, audio_path))
 
-        try:
-            song_df = df.loc[df['SongID'] == song_id]
-            n_meters, max_frames = process_song(song_id, song_df, audio_path,
-                                                args.segments_dir, args.labels_dir,
-                                                grid_source=args.grid_source, device=args.device,
-                                                nmf_device=args.nmf_device,
-                                                tempo_source=args.tempo_source)
-            max_meters_seen = max(max_meters_seen, n_meters)
-            max_frames_seen = max(max_frames_seen, max_frames)
-            processed += 1
-        except Exception as e:
-            failed.append((song_id, f"{type(e).__name__}: {e}"))
+    nmf_device = args.nmf_device
+    if args.workers > 1 and nmf_device and nmf_device != "cpu":
+        # One CUDA context per worker costs more memory and setup than the NMF
+        # fits save; the workers themselves are the bigger win.
+        print(f"--workers {args.workers}: running the NMF fits on the CPU instead "
+              f"of {nmf_device}, one CUDA context per worker is not worth it.")
+        nmf_device = None
+
+    def run_one(song_id, audio_path):
+        """Process one song. Returns (n_meters, max_frames)."""
+        return process_song(song_id, df.loc[df['SongID'] == song_id], audio_path,
+                            args.segments_dir, args.labels_dir,
+                            grid_source=args.grid_source, device=args.device,
+                            nmf_device=nmf_device, tempo_source=args.tempo_source)
+
+    if args.workers > 1:
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+        with ProcessPoolExecutor(max_workers=args.workers) as pool:
+            futures = {pool.submit(_process_one_song, song_id, audio_path, df, args,
+                                   nmf_device): song_id
+                       for song_id, audio_path in todo}
+            for future in tqdm(as_completed(futures), total=len(futures),
+                               desc=f"Preprocessing ({args.workers} workers)"):
+                song_id = futures[future]
+                try:
+                    n_meters, max_frames = future.result()
+                    max_meters_seen = max(max_meters_seen, n_meters)
+                    max_frames_seen = max(max_frames_seen, max_frames)
+                    processed += 1
+                except Exception as e:
+                    failed.append((song_id, f"{type(e).__name__}: {e}"))
+    else:
+        for song_id, audio_path in tqdm(todo, desc="Preprocessing"):
+            try:
+                n_meters, max_frames = run_one(song_id, audio_path)
+                max_meters_seen = max(max_meters_seen, n_meters)
+                max_frames_seen = max(max_frames_seen, max_frames)
+                processed += 1
+            except Exception as e:
+                failed.append((song_id, f"{type(e).__name__}: {e}"))
 
     print(f"\nProcessed: {processed}, skipped (already done): {skipped}, failed: {len(failed)}")
     if processed:
