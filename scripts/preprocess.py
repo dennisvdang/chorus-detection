@@ -38,6 +38,12 @@ from sklearn.exceptions import ConvergenceWarning
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
+# Running this file as a script puts scripts/ on the import path, not the repo
+# root, so the pytorch_core package beside it would not be importable. This is
+# needed by the three pytorch_core imports below and further down the file, and
+# only an editable install of this repo would otherwise hide the problem.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # The one tempo-range rule shared with inference; re-exported for tests.
 from pytorch_core.audio_processor import fold_tempo  # noqa: E402,F401
 
