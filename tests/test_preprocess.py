@@ -64,14 +64,18 @@ def test_process_one_song(tmp_path):
 
 
 def test_fold_tempo_halves_double_time_and_doubles_half_time():
-    """174 BPM folds to 87 (half time), 60 folds to 120; in-range stays put.
+    """The shared range is [70, 180]: genuine fast tempos like 174 BPM
+    survive unfolded, 200 halves to 100, 60 doubles to 120.
 
     The estimated-tempo path uses this instead of clipping, because clipping
-    174 to 140 builds a grid at a tempo the song never has.
+    builds a grid at a tempo the song never has. The same function runs at
+    inference in pytorch_core/audio_processor.py, so training and inference
+    cannot drift apart.
     """
-    assert preprocess.fold_tempo(174.0) == pytest.approx(87.0)
+    assert preprocess.fold_tempo(174.0) == pytest.approx(174.0)
+    assert preprocess.fold_tempo(200.0) == pytest.approx(100.0)
     assert preprocess.fold_tempo(60.0) == pytest.approx(120.0)
     assert preprocess.fold_tempo(120.0) == pytest.approx(120.0)
-    # 280.1 halves to 140.05, still above 140, so it halves again.
-    assert preprocess.fold_tempo(280.1) == pytest.approx(70.025, abs=0.01)
     assert preprocess.fold_tempo(0.0) == 0.0
+    from pytorch_core.audio_processor import fold_tempo
+    assert preprocess.fold_tempo is fold_tempo

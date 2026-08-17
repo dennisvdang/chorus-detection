@@ -19,6 +19,28 @@ MAX_METERS = 201
 N_FEATURES = 15
 
 
+def fold_tempo(tempo: float, low: float = 70.0, high: float = 180.0) -> float:
+    """Fold a tempo into [low, high] by octave doubling or halving.
+
+    A beat tracker reporting 200 BPM has most likely counted double time on a
+    100 BPM song; halving preserves the bar structure, whereas clipping would
+    build a grid at a tempo the song never has. The ceiling is 180 so that
+    genuine fast tempos (drum and bass at 174, for instance) survive unfolded.
+    A tempo of 0 or below cannot be folded and is returned unchanged for the
+    caller to reject.
+
+    This is the one tempo-range rule shared by training-data preprocessing and
+    inference; change it here and both sides move together.
+    """
+    if tempo <= 0:
+        return float(tempo)
+    while tempo > high:
+        tempo /= 2.0
+    while tempo < low:
+        tempo *= 2.0
+    return float(tempo)
+
+
 class AudioFeature:
     def __init__(self, audio_path, sr=SR, hop_length=HOP_LENGTH):
         """Initialize the AudioFeature with an audio file."""
@@ -261,11 +283,8 @@ class AudioFeature:
         self.tempo, self.beats = librosa.beat.beat_track(
             onset_envelope=self.onset_env, sr=self.sr, hop_length=self.hop_length)
         
-        # Adjust tempo to reasonable range
-        if self.tempo < 70:
-            self.tempo *= 2
-        elif self.tempo > 140:
-            self.tempo /= 2
+        # Fold into the shared tempo range
+        self.tempo = fold_tempo(float(np.atleast_1d(self.tempo)[0]))
             
         self._extracted_features.add('beats')
         return self.tempo, self.beats
@@ -277,9 +296,9 @@ class AudioFeature:
         """Create a grid based on the meter of the song, using tempo and beats.
 
         Args:
-            bpm: Optional known tempo (e.g. from dataset metadata). Clipped to
-                [70, 140] like the original training preprocessing. When None,
-                the tempo detected by detect_beats() is used.
+            bpm: Optional known tempo (e.g. from dataset metadata). Folded by
+                octave into the shared range (see fold_tempo). When None, the
+                tempo detected by detect_beats() is used.
             time_signature: Optional known time signature (beats per meter).
             grid_source: "librosa" extrapolates a single tempo over the song
                 (original behavior); "beat_this" builds the grid from downbeats
@@ -291,7 +310,7 @@ class AudioFeature:
             self.detect_beats()
 
         if bpm is not None:
-            self.tempo = float(np.clip(bpm, 70, 140))
+            self.tempo = fold_tempo(bpm)
         if time_signature is not None:
             self.time_signature = int(time_signature)
 

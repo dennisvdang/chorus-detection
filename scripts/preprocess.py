@@ -38,6 +38,9 @@ from sklearn.exceptions import ConvergenceWarning
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
+# The one tempo-range rule shared with inference; re-exported for tests.
+from pytorch_core.audio_processor import fold_tempo  # noqa: E402,F401
+
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
 TARGET_SR = 12000
@@ -70,23 +73,6 @@ def calculate_ki_chroma(y: np.ndarray, sr: int, hop_length: int) -> np.ndarray:
     key_idx = NOTE_NAMES.index(key)
     shift_amount = -key_idx if mode == 'major' else -(key_idx + 3) % 12
     return librosa.util.normalize(np.roll(chromagram, shift_amount, axis=0), axis=1)
-
-
-def fold_tempo(tempo: float, low: float = 70.0, high: float = 140.0) -> float:
-    """Fold a tempo into [low, high] by octave doubling or halving.
-
-    A beat tracker reporting 174 BPM has most likely counted double time on an
-    87 BPM song; halving preserves the bar structure, whereas clipping to 140
-    would build a grid at a tempo the song never has. A tempo of 0 or below
-    cannot be folded and is returned unchanged for the caller to reject.
-    """
-    if tempo <= 0:
-        return float(tempo)
-    while tempo > high:
-        tempo /= 2.0
-    while tempo < low:
-        tempo *= 2.0
-    return float(tempo)
 
 
 def create_meter_grid(beats: np.ndarray, tempo: float, sr: int, hop_length: int,
