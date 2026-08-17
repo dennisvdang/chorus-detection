@@ -143,8 +143,8 @@ def apply_hierarchical_positional_encoding(segments: List[np.ndarray]) -> List[n
 
 
 def extract_combined_features(y: np.ndarray, y_harm: np.ndarray, y_perc: np.ndarray,
-                              sr: int, hop_length: int,
-                              nmf_device: str = None) -> Tuple[np.ndarray, np.ndarray]:
+                              sr: int, hop_length: int, nmf_device: str = None,
+                              random_seed: int = None) -> Tuple[np.ndarray, np.ndarray]:
     """Extract, decompose, standardize, and weight all features for one song.
 
     Args:
@@ -159,7 +159,12 @@ def extract_combined_features(y: np.ndarray, y_harm: np.ndarray, y_perc: np.ndar
         from pytorch_core.nmf_torch import decompose as _nmf
     else:
         def _nmf(S, n_components, sort=True, device=None):
-            return librosa.decompose.decompose(S, n_components=n_components, sort=sort)
+            from sklearn.decomposition import NMF
+            if random_seed is None:
+                return librosa.decompose.decompose(S, n_components=n_components, sort=sort)
+            return librosa.decompose.decompose(
+                S, n_components=n_components, sort=sort,
+                transformer=NMF(n_components=n_components, random_state=random_seed))
 
     S = np.abs(librosa.stft(y, hop_length=hop_length))
     rms = librosa.feature.rms(S=S).astype(np.float32)
@@ -197,7 +202,7 @@ def process_song(song_id, song_df: pd.DataFrame, audio_path: str,
                  segments_dir: str, labels_dir: str,
                  grid_source: str = "librosa", device: str = "cpu",
                  nmf_device: str = None,
-                 tempo_source: str = "dataset") -> Tuple[int, int]:
+                 tempo_source: str = "dataset", random_seed=None) -> Tuple[int, int]:
     """Process a single song and write its segment/label pickles.
 
     Args:
@@ -221,7 +226,8 @@ def process_song(song_id, song_df: pd.DataFrame, audio_path: str,
     y_harm, y_perc = librosa.effects.hpss(y)
 
     combined_features, onset_env = extract_combined_features(y, y_harm, y_perc, TARGET_SR, HOP_LENGTH,
-                                                             nmf_device=nmf_device)
+                                                             nmf_device=nmf_device,
+                                                             random_seed=random_seed)
 
     tempo, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=TARGET_SR, hop_length=HOP_LENGTH)
     tempo = float(np.atleast_1d(tempo)[0])
@@ -272,7 +278,8 @@ def _process_one_song(song_id, audio_path, df, args, nmf_device):
     return process_song(song_id, df.loc[df['SongID'] == song_id], audio_path,
                         args.segments_dir, args.labels_dir,
                         grid_source=args.grid_source, device=args.device,
-                        nmf_device=nmf_device, tempo_source=args.tempo_source)
+                        nmf_device=nmf_device, tempo_source=args.tempo_source,
+                        random_seed=args.random_seed)
 
 
 def main():
@@ -297,6 +304,11 @@ def main():
                         help="Torch device for the Beat This! tracker (beat_this grid only)")
     parser.add_argument("--nmf-device", default=None,
                         help="Torch device for NMF fits (e.g. cuda); default keeps sklearn on CPU")
+    parser.add_argument("--random-seed", type=int, default=None,
+                        help="Seed the NMF fits so a rerun reproduces its "
+                             "features exactly. Unset, sklearn draws a new "
+                             "random initialisation each run and two identical "
+                             "runs differ slightly.")
     parser.add_argument("--workers", type=int, default=1,
                         help="Process this many songs at once. Each song is "
                              "independent, and the per-song work is mostly "
@@ -352,7 +364,8 @@ def main():
         return process_song(song_id, df.loc[df['SongID'] == song_id], audio_path,
                             args.segments_dir, args.labels_dir,
                             grid_source=args.grid_source, device=args.device,
-                            nmf_device=nmf_device, tempo_source=args.tempo_source)
+                            nmf_device=nmf_device, tempo_source=args.tempo_source,
+                        random_seed=args.random_seed)
 
     if args.workers > 1:
         from concurrent.futures import ProcessPoolExecutor, as_completed
