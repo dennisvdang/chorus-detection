@@ -187,7 +187,8 @@ def extract_combined_features(y: np.ndarray, y_harm: np.ndarray, y_perc: np.ndar
 def process_song(song_id, song_df: pd.DataFrame, audio_path: str,
                  segments_dir: str, labels_dir: str,
                  grid_source: str = "librosa", device: str = "cpu",
-                 nmf_device: str = None) -> Tuple[int, int]:
+                 nmf_device: str = None,
+                 tempo_source: str = "dataset") -> Tuple[int, int]:
     """Process a single song and write its segment/label pickles.
 
     Args:
@@ -198,6 +199,11 @@ def process_song(song_id, song_df: pd.DataFrame, audio_path: str,
         device: Torch device for the Beat This! tracker when grid_source is
             "beat_this".
         nmf_device: Torch device for the NMF fits; None keeps sklearn on CPU.
+        tempo_source: Where the extrapolated grid's tempo comes from.
+            "dataset" reads the per-song Spotify tempo and time signature from
+            the CSV (original behavior); "estimated" uses the tempo measured
+            from the audio and assumes 4/4, so no outside metadata is used.
+            Only affects the librosa grid.
 
     Returns:
         Tuple of (n_meters, max_frames_per_meter) for dataset statistics.
@@ -211,10 +217,15 @@ def process_song(song_id, song_df: pd.DataFrame, audio_path: str,
     tempo, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=TARGET_SR, hop_length=HOP_LENGTH)
     tempo = float(np.atleast_1d(tempo)[0])
 
-    # Tempo and time signature come from the dataset CSV (Spotify metadata),
-    # with the librosa estimate as fallback — matching the original training data.
-    bpm = song_df['sp_tempo'].fillna(tempo).replace(0, tempo).clip(lower=70, upper=140).values[0]
-    time_signature = int(song_df['sp_time_signature'].fillna(4).replace(0, 4).values[0])
+    if tempo_source == "estimated":
+        # No outside metadata: tempo measured from the audio, 4/4 assumed.
+        bpm = float(np.clip(tempo, 70, 140))
+        time_signature = 4
+    else:
+        # Tempo and time signature come from the dataset CSV (Spotify metadata),
+        # with the librosa estimate as fallback — matching the original training data.
+        bpm = song_df['sp_tempo'].fillna(tempo).replace(0, tempo).clip(lower=70, upper=140).values[0]
+        time_signature = int(song_df['sp_time_signature'].fillna(4).replace(0, 4).values[0])
 
     if grid_source == "beat_this":
         from pytorch_core.downbeats import create_downbeat_meter_grid, track_downbeats
@@ -269,6 +280,11 @@ def main():
                         help="Torch device for the Beat This! tracker (beat_this grid only)")
     parser.add_argument("--nmf-device", default=None,
                         help="Torch device for NMF fits (e.g. cuda); default keeps sklearn on CPU")
+    parser.add_argument("--tempo-source", choices=["dataset", "estimated"], default="dataset",
+                        help="Tempo for the extrapolated grid: 'dataset' reads the per-song "
+                             "Spotify tempo from the CSV (original behavior); 'estimated' "
+                             "measures it from the audio and assumes 4/4, using no outside "
+                             "metadata. Only affects --grid-source librosa.")
     args = parser.parse_args()
 
     df = pd.read_csv(args.csv)
@@ -302,7 +318,8 @@ def main():
             n_meters, max_frames = process_song(song_id, song_df, audio_path,
                                                 args.segments_dir, args.labels_dir,
                                                 grid_source=args.grid_source, device=args.device,
-                                                nmf_device=args.nmf_device)
+                                                nmf_device=args.nmf_device,
+                                                tempo_source=args.tempo_source)
             max_meters_seen = max(max_meters_seen, n_meters)
             max_frames_seen = max(max_frames_seen, max_frames)
             processed += 1
