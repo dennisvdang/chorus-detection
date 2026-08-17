@@ -72,6 +72,23 @@ def calculate_ki_chroma(y: np.ndarray, sr: int, hop_length: int) -> np.ndarray:
     return librosa.util.normalize(np.roll(chromagram, shift_amount, axis=0), axis=1)
 
 
+def fold_tempo(tempo: float, low: float = 70.0, high: float = 140.0) -> float:
+    """Fold a tempo into [low, high] by octave doubling or halving.
+
+    A beat tracker reporting 174 BPM has most likely counted double time on an
+    87 BPM song; halving preserves the bar structure, whereas clipping to 140
+    would build a grid at a tempo the song never has. A tempo of 0 or below
+    cannot be folded and is returned unchanged for the caller to reject.
+    """
+    if tempo <= 0:
+        return float(tempo)
+    while tempo > high:
+        tempo /= 2.0
+    while tempo < low:
+        tempo *= 2.0
+    return float(tempo)
+
+
 def create_meter_grid(beats: np.ndarray, tempo: float, sr: int, hop_length: int,
                       frame_duration: int, time_signature: int = 4) -> np.ndarray:
     """Generate a meter grid (in frames) spanning the duration of a song."""
@@ -219,7 +236,7 @@ def process_song(song_id, song_df: pd.DataFrame, audio_path: str,
 
     if tempo_source == "estimated":
         # No outside metadata: tempo measured from the audio, 4/4 assumed.
-        bpm = float(np.clip(tempo, 70, 140))
+        bpm = fold_tempo(tempo)
         time_signature = 4
     else:
         # Tempo and time signature come from the dataset CSV (Spotify metadata),

@@ -61,3 +61,17 @@ def test_process_one_song(tmp_path):
     assert len(segments) == len(labels) == n_meters
     assert all(seg.shape[1] == 15 for seg in segments)  # 15 combined features
     assert set(np.unique(labels)).issubset({0, 1})
+
+
+def test_fold_tempo_halves_double_time_and_doubles_half_time():
+    """174 BPM folds to 87 (half time), 60 folds to 120; in-range stays put.
+
+    The estimated-tempo path uses this instead of clipping, because clipping
+    174 to 140 builds a grid at a tempo the song never has.
+    """
+    assert preprocess.fold_tempo(174.0) == pytest.approx(87.0)
+    assert preprocess.fold_tempo(60.0) == pytest.approx(120.0)
+    assert preprocess.fold_tempo(120.0) == pytest.approx(120.0)
+    # 280.1 halves to 140.05, still above 140, so it halves again.
+    assert preprocess.fold_tempo(280.1) == pytest.approx(70.025, abs=0.01)
+    assert preprocess.fold_tempo(0.0) == 0.0

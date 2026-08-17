@@ -17,9 +17,19 @@ one stable BPM for the track, or None when no constant region exists.
 Constants match Mixxx exactly; comments give the original rationale.
 """
 
+import math
 from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
+
+
+def _round(x: float) -> float:
+    """Round half away from zero, matching C++ round().
+
+    Python's built-in round() rounds half to even, so the two disagree on
+    exact ties (e.g. 1438.5). All values here are positive.
+    """
+    return math.floor(x + 0.5)
 
 # A beat within 25 ms of its ironed position is "on grid": this small of a
 # difference is inaudible, and it is > 2 * 12 ms, the step width of the QM
@@ -103,7 +113,7 @@ def round_bpm_within_range(min_bpm: float, center_bpm: float,
     slow tempos (halved fast tempos) and 2/3-based steps for fast ones, then
     1/12 steps, matching Mixxx's assumption of a metronome at a full BPM.
     """
-    snap = round(center_bpm)
+    snap = _round(center_bpm)
     if min_bpm < snap < max_bpm:
         return float(snap)
 
@@ -111,17 +121,17 @@ def round_bpm_within_range(min_bpm: float, center_bpm: float,
     if width > 0.5:
         if center_bpm < 85.0:
             # Can actually be up to 175 BPM: allow half-BPM values.
-            return round(center_bpm * 2) / 2
+            return _round(center_bpm * 2) / 2
         if center_bpm > 127.0:
             # Optimize for the 2/3 value going down to 85.
-            return round(center_bpm / 3 * 2) * 3 / 2
+            return _round(center_bpm / 3 * 2) * 3 / 2
 
     if width > 1.0 / 12:
         # Covers the 1/2, 2/3, and 3/4 multipliers.
-        return round(center_bpm * 12) / 12
+        return _round(center_bpm * 12) / 12
 
     # More than ~75 beats and ~30 s: try a 1/12 snap, else keep the value.
-    snap = round(center_bpm * 12) / 12
+    snap = _round(center_bpm * 12) / 12
     if min_bpm < snap < max_bpm:
         return snap
     return float(center_bpm)
@@ -172,8 +182,8 @@ def make_const_bpm(regions: List[Tuple[float, float]]) -> Optional[float]:
             new_length = regions[mid_index + 1][0] - regions[i][0]
             merged_min = max(beat_length_min, this_min)
             merged_max = min(beat_length_max, this_max)
-            max_n = round(new_length / merged_min)
-            min_n = round(new_length / merged_max)
+            max_n = _round(new_length / merged_min)
+            min_n = _round(new_length / merged_max)
             if min_n != max_n:
                 continue  # ambiguous beat count: phases disagree
             new_beat_length = new_length / min_n
@@ -198,8 +208,8 @@ def make_const_bpm(regions: List[Tuple[float, float]]) -> Optional[float]:
             new_length = regions[i + 1][0] - regions[start_index][0]
             merged_min = max(beat_length_min, this_min)
             merged_max = min(beat_length_max, this_max)
-            max_n = round(new_length / merged_min)
-            min_n = round(new_length / merged_max)
+            max_n = _round(new_length / merged_min)
+            min_n = _round(new_length / merged_max)
             if min_n != max_n:
                 continue
             new_beat_length = new_length / min_n

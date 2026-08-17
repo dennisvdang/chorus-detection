@@ -95,6 +95,62 @@ def test_make_const_bpm_of_no_regions_is_none():
     assert make_const_bpm([(10.0, 0.0)]) is None
 
 
+def test_one_displaced_beat_is_tolerated_as_an_outlier():
+    """One beat 40 ms off grid: within MAX_OUTLIERS_COUNT, the region holds."""
+    beats = np.arange(64) * 0.5
+    beats[30] += 0.040
+    regions = retrieve_const_regions(beats)
+    assert len(regions) == 2  # one region plus the end marker
+    assert calculate_bpm(beats) == pytest.approx(120.0)
+
+
+def test_two_displaced_beats_split_the_region():
+    """Two beats 40 ms off exceed the one-outlier budget: the region splits.
+
+    40 ms sits above the 25 ms tolerance but keeps the summed drift under the
+    100 ms abort, so this pins MAX_SECS_PHASE_ERROR and MAX_OUTLIERS_COUNT
+    themselves rather than the drift guard.
+    """
+    beats = np.arange(64) * 0.5
+    beats[30] += 0.040
+    beats[31] += 0.040
+    regions = retrieve_const_regions(beats)
+    assert len(regions) >= 3  # at least two real regions plus the marker
+
+
+def test_a_region_may_not_begin_on_an_outlier():
+    """The second beat 40 ms off makes the first beat pair an outlier, so the
+    region must start later rather than absorb it as its one allowed outlier."""
+    beats = np.arange(64) * 0.5
+    beats[1] += 0.040
+    regions = retrieve_const_regions(beats)
+    # The long clean region must start at or after the displaced beat.
+    longest = max(regions[:-1], key=lambda r: r[1] and 0 or 0, default=None)
+    starts = [r[0] for r in regions[:-1]]
+    assert any(s >= beats[1] - 1e-9 for s in starts)
+    assert calculate_bpm(beats) == pytest.approx(120.0)
+
+
+def test_rounding_two_thirds_branch_directly():
+    """Width > 0.5, center > 127, and the whole number lies outside the range:
+    the 2/3 rule must fire. round(174.55/3*2)*3/2 = 174.0."""
+    assert round_bpm_within_range(174.2, 174.55, 174.9) == pytest.approx(174.0)
+
+
+def test_rounding_twelfth_branch_directly():
+    """Width between 1/12 and 0.5, whole number outside the range, mid tempo:
+    the 1/12 rule must fire. round(119.42*12)/12 = 119.4167."""
+    assert round_bpm_within_range(119.30, 119.42, 119.55) == pytest.approx(
+        119.4167, abs=1e-3)
+
+
+def test_cpp_rounding_ties_round_half_away_from_zero():
+    """119.875 * 12 = 1438.5 exactly: C++ rounds it up, Python's built-in
+    round would round to even (down). The port must match C++."""
+    assert round_bpm_within_range(119.86, 119.875, 119.93) == pytest.approx(
+        119.9167, abs=1e-3)
+
+
 def test_phase_shifted_halves_do_not_merge_into_one_region():
     """Same tempo, but the second half is shifted by 60 ms: a region border
     must appear rather than one region papering over the shift."""
