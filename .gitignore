@@ -55,3 +55,15 @@ archive/
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Credentials and secrets (prevention: none are present today)
+.env
+.env.*
+creds/
+secrets/
+*credentials*.json
+*secret*.json
+*.pem
+*.key
+*.p12
+service-account*.json
