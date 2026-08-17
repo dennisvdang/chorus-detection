@@ -6,7 +6,6 @@ import os
 import shutil
 from functools import reduce
 
-import yt_dlp
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
 
@@ -20,6 +19,10 @@ def extract_audio(url, output_path=AUDIO_TEMP_PATH):
     Returns:
         Tuple of (path to the mp3 file, video title), or (None, None) on failure.
     """
+    # Imported here, not at module scope: strip_silence() below is pulled in by
+    # the feature pipeline, and that must not require a YouTube downloader.
+    import yt_dlp
+
     try:
         os.makedirs(output_path, exist_ok=True)
         ydl_opts = {
