@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="chorus-detection",
-    version="0.2.0",
+    version="0.3.0",
     description="A tool for detecting chorus sections in audio files",
     author="Dennis Dang",
     url="https://github.com/dennisvdang/chorus-detection",
@@ -16,6 +16,10 @@ setup(
         "scipy>=1.10.0,<1.11.0",
         "scikit-learn>=1.3.0,<1.4.0",
         "librosa>=0.10.0,<0.11.0",
+        # Beat This! (ISMIR 2024) supplies the tracked downbeats the
+        # shipped checkpoint was trained on. Not on PyPI, so this is a
+        # PEP 508 direct reference. Without it the model has no bar grid.
+        "beat_this @ https://github.com/CPJKU/beat_this/archive/main.zip",
         "soundfile>=0.12.1,<0.13.0",
         "pydub>=0.25.1,<0.26.0",
         "matplotlib>=3.7.0,<3.8.0",

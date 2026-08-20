@@ -15,6 +15,8 @@ import time
 import sys
 
 from pytorch_core.audio_processor import process_audio
+from pytorch_core import defaults
+from pytorch_core.downbeats import is_available as beat_this_available
 from pytorch_core.model import load_CRNN_model, make_predictions, MODEL_PATH
 from pytorch_core.visualization import plot_predictions, plot_chorus_segments
 from pytorch_core.utils import extract_audio, cleanup_temp_files
@@ -75,10 +77,22 @@ def process_uploaded_file(uploaded_file):
 
 def analyze_audio(audio_path, video_title=None):
     """Process the audio file and detect choruses."""
+    # The shipped checkpoint was trained on bar lines taken from Beat This!
+    # downbeats, so without the tracker there is no grid to read the audio on.
+    # Fail here with the cause rather than inside process_audio, which reports
+    # every failure as an unreadable file.
+    if defaults.GRID_SOURCE == "beat_this" and not beat_this_available():
+        st.error(
+            "The Beat This! downbeat tracker is not installed, and the chorus "
+            "model needs it to draw bar lines. Install it with: pip install "
+            "https://github.com/CPJKU/beat_this/archive/main.zip")
+        return
+
     try:
-        # Process audio
+        # Process audio on the same bar grid the checkpoint was trained on
         with st.spinner("Processing audio..."):
-            processed_audio, audio_features = process_audio(audio_path)
+            processed_audio, audio_features = process_audio(
+                audio_path, grid_source=defaults.GRID_SOURCE)
             if processed_audio is None:
                 st.error("Failed to process audio. Please try a different file.")
                 return
@@ -93,7 +107,8 @@ def analyze_audio(audio_path, video_title=None):
         # Make predictions
         with st.spinner("Detecting choruses..."):
             smoothed_predictions, chorus_start_times, chorus_end_times = make_predictions(
-                model, processed_audio, audio_features)
+                model, processed_audio, audio_features,
+                snap_downbeats=defaults.SNAP_DOWNBEATS, decode=defaults.DECODE)
         
         # Display results
         st.subheader("Analysis Results")

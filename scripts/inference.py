@@ -18,7 +18,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pytorch_core.models.crnn import CRNN
 from pytorch_core.audio_processor import process_audio
-from pytorch_core.model import snap_boundaries_to_downbeats
+from pytorch_core import defaults
+from pytorch_core.decoding import viterbi_chorus
+from pytorch_core.downbeats import is_available as beat_this_available
+from pytorch_core.model import MODEL_PATH, download_model, snap_boundaries_to_downbeats
 
 
 def load_config(config_path):
@@ -79,7 +82,10 @@ def smooth_predictions(predictions, window_size=3, min_segment_length=2):
 
 
 def detect_chorus(model, audio_path, config, device='cpu', bpm=None, time_signature=None,
-                  snap_downbeats=True, snap_window=2.0):
+                  snap_downbeats=defaults.SNAP_DOWNBEATS,
+                  snap_window=defaults.SNAP_WINDOW_BARS,
+                  grid_source=defaults.GRID_SOURCE,
+                  decode=defaults.DECODE):
     """
     Detect chorus segments in audio file using the trained model.
 
@@ -93,6 +99,10 @@ def detect_chorus(model, audio_path, config, device='cpu', bpm=None, time_signat
         snap_downbeats: Snap chorus boundaries to Beat This! downbeats when
             the beat_this package is installed
         snap_window: Half-width in bars of the energy-based snap search window
+        grid_source: Bar grid, "beat_this" or "librosa". Must match the grid
+            the checkpoint was trained on; the shipped checkpoint used
+            "beat_this". See pytorch_core.defaults.
+        decode: "viterbi" or "smooth". See pytorch_core.defaults.
 
     Returns:
         Tuple of (predictions, chorus_start_times, chorus_end_times, audio_features)
@@ -101,7 +111,8 @@ def detect_chorus(model, audio_path, config, device='cpu', bpm=None, time_signat
     processed_audio, audio_features = process_audio(audio_path, trim_silence=True,
                                                     sr=config["data"]["sr"],
                                                     hop_length=config["data"]["hop_length"],
-                                                    bpm=bpm, time_signature=time_signature)
+                                                    bpm=bpm, time_signature=time_signature,
+                                                    grid_source=grid_source, device=device)
     
     if processed_audio is None or audio_features is None:
         print(f"Error processing audio: {audio_path}")
@@ -121,8 +132,16 @@ def detect_chorus(model, audio_path, config, device='cpu', bpm=None, time_signat
     n_meters = min(len(audio_features.meter_grid) - 1, len(outputs))
     predictions = outputs[:n_meters]
     
-    # Apply smoothing
-    smoothed_predictions = smooth_predictions(predictions)
+    # Turn per-bar probabilities into a 0/1 path
+    if decode == "viterbi":
+        smoothed_predictions = viterbi_chorus(
+            predictions,
+            switch_penalty=defaults.VITERBI_SWITCH_PENALTY,
+            min_bars=defaults.VITERBI_MIN_BARS)
+    elif decode == "smooth":
+        smoothed_predictions = smooth_predictions(predictions)
+    else:
+        raise ValueError(f"unknown decode {decode!r}; use 'viterbi' or 'smooth'")
     
     # Calculate time values for display
     meter_grid_times = librosa.frames_to_time(
@@ -231,8 +250,12 @@ def main():
                         help="Path to audio file")
     parser.add_argument("--config", type=str, default="config/default.yaml",
                         help="Path to configuration file")
-    parser.add_argument("--checkpoint", type=str, required=True,
-                        help="Path to model checkpoint")
+    parser.add_argument("--checkpoint", type=str, default=MODEL_PATH,
+                        help="Path to model checkpoint; defaults to the shipped "
+                             "checkpoint, downloaded from the GitHub release "
+                             "when missing. It was trained on the "
+                             f"{defaults.GRID_SOURCE} grid, so --grid-source "
+                             "must match it.")
     parser.add_argument("--output", type=str, default=None,
                         help="Path to save output plot")
     parser.add_argument("--device", type=str, default="cpu",
@@ -243,19 +266,42 @@ def main():
                         help="Known time signature (otherwise 4/4)")
     parser.add_argument("--no-snap", action="store_true",
                         help="Disable snapping chorus boundaries to Beat This! downbeats")
-    parser.add_argument("--snap-window", type=float, default=2.0,
+    parser.add_argument("--snap-window", type=float, default=defaults.SNAP_WINDOW_BARS,
                         help="Half-width in bars of the downbeat snap search window")
+    parser.add_argument("--grid-source", choices=["librosa", "beat_this"],
+                        default=defaults.GRID_SOURCE,
+                        help="Bar grid: Beat This! tracked downbeats (beat_this) "
+                             "or librosa tempo extrapolation (librosa). Must "
+                             "match the grid the checkpoint was trained on.")
+    parser.add_argument("--decode", choices=["viterbi", "smooth"],
+                        default=defaults.DECODE,
+                        help="Turn per-bar probabilities into segments with the "
+                             "two-state HMM (viterbi) or a 0.5 threshold (smooth)")
     args = parser.parse_args()
     
     # Check if audio file exists
     if not os.path.exists(args.audio):
         print(f"Audio file not found: {args.audio}")
         return
-    
-    # Check if checkpoint exists
-    if not os.path.exists(args.checkpoint):
-        print(f"Checkpoint not found: {args.checkpoint}")
+
+    # Report the real cause here rather than inside process_audio, which
+    # reports every failure as an unreadable audio file
+    if args.grid_source == "beat_this" and not beat_this_available():
+        print("The Beat This! downbeat tracker is not installed, and "
+              "--grid-source beat_this needs it to draw bar lines.\n"
+              "Install it with:\n"
+              "  pip install https://github.com/CPJKU/beat_this/archive/main.zip\n"
+              "Or pass --grid-source librosa with a checkpoint trained on "
+              "that grid.")
         return
+
+    # Fetch the shipped checkpoint on first use; any other path must exist
+    if not os.path.exists(args.checkpoint):
+        if os.path.abspath(args.checkpoint) == os.path.abspath(MODEL_PATH):
+            download_model()
+        else:
+            print(f"Checkpoint not found: {args.checkpoint}")
+            return
     
     # Load configuration
     config = load_config(args.config)
@@ -269,7 +315,8 @@ def main():
     predictions, chorus_start_times, chorus_end_times, audio_features = detect_chorus(
         model, args.audio, config, device=args.device,
         bpm=args.bpm, time_signature=args.time_signature,
-        snap_downbeats=not args.no_snap, snap_window=args.snap_window)
+        snap_downbeats=not args.no_snap, snap_window=args.snap_window,
+        grid_source=args.grid_source, decode=args.decode)
     
     if predictions is None:
         print("Error detecting chorus.")

@@ -10,13 +10,24 @@ import numpy as np
 import torch
 
 from pytorch_core.models.crnn import CRNN
+from pytorch_core import defaults
 from pytorch_core import downbeats as downbeat_tracking
+from pytorch_core.decoding import viterbi_chorus
 
-# Default model location; downloaded from the GitHub release when missing
+# Default model location; downloaded from the GitHub release when missing.
+# This checkpoint was trained on the tracked-downbeat grid, so callers must
+# read audio with grid_source=defaults.GRID_SOURCE. See pytorch_core.defaults.
 MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                          "models", "CRNN_pytorch", "crnn_v1.pt")
+                          "models", "CRNN_pytorch", "crnn_beatthis_v1.pt")
 MODEL_URL = ("https://github.com/dennisvdang/chorus-detection/"
-             "releases/download/pytorch-v1.0/crnn_v1.pt")
+             "releases/download/beatthis-v1.0/crnn_beatthis_v1.pt")
+
+# The previous checkpoint, trained on the extrapolated librosa grid. Kept so
+# the older configuration stays reproducible; it is no longer the default.
+LEGACY_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                 "models", "CRNN_pytorch", "crnn_v1.pt")
+LEGACY_MODEL_URL = ("https://github.com/dennisvdang/chorus-detection/"
+                    "releases/download/pytorch-v1.0/crnn_v1.pt")
 
 
 def download_model(model_path: str = MODEL_PATH, url: str = MODEL_URL) -> str:
@@ -29,11 +40,15 @@ def download_model(model_path: str = MODEL_PATH, url: str = MODEL_URL) -> str:
     return model_path
 
 
-def load_CRNN_model(model_path: str = MODEL_PATH):
-    """Load the pre-trained CRNN model from the specified path."""
+def load_CRNN_model(model_path: str = MODEL_PATH, url: str = MODEL_URL):
+    """Load the pre-trained CRNN model from the specified path.
+
+    Pass LEGACY_MODEL_PATH and LEGACY_MODEL_URL together to load the older
+    checkpoint; the two must match or the download writes the wrong weights.
+    """
     try:
         if not os.path.exists(model_path):
-            download_model(model_path)
+            download_model(model_path, url)
         checkpoint = torch.load(model_path, map_location="cpu")
         model = CRNN(checkpoint["config"])
         model.load_state_dict(checkpoint["model_state_dict"])
@@ -82,12 +97,24 @@ def smooth_predictions(data: np.ndarray) -> np.ndarray:
     return binary_smoothed
 
 
-def make_predictions(model, processed_audio, audio_features, snap_downbeats=True):
+def make_predictions(model, processed_audio, audio_features,
+                     snap_downbeats=defaults.SNAP_DOWNBEATS,
+                     decode=defaults.DECODE):
     """Make chorus predictions using the loaded model.
 
-    When snap_downbeats is True and the optional beat_this package is
-    installed, chorus boundaries are snapped to downbeats tracked by
-    Beat This! to correct meter-grid phase errors.
+    Args:
+        decode: "viterbi" reads the per-bar probabilities as a two-state HMM
+            and takes the lowest-cost path; "smooth" thresholds at 0.5 and
+            drops runs shorter than two bars. Viterbi is the default because
+            it places 58.8% of first chorus starts exactly against 54.9% for
+            smoothing on this grid (results/vast-run/trials.csv, T3b vs T2b).
+        snap_downbeats: Move each decoded boundary to a nearby downbeat
+            tracked by Beat This!, which raises exact placement from 58.8% to
+            76.5% (T4b vs T3b). Requires the beat_this package; without it the
+            boundaries are returned unsnapped.
+
+    The audio must have been read with grid_source=defaults.GRID_SOURCE, the
+    grid the shipped checkpoint was trained on.
     """
     # Generate predictions
     audio_tensor = torch.tensor(processed_audio, dtype=torch.float32)
@@ -98,8 +125,16 @@ def make_predictions(model, processed_audio, audio_features, snap_downbeats=True
     n_meters = min(len(audio_features.meter_grid) - 1, len(raw_predictions))
     predictions = raw_predictions[:n_meters]
 
-    # Apply smoothing
-    smoothed_predictions = smooth_predictions(predictions)
+    # Turn per-bar probabilities into a 0/1 path
+    if decode == "viterbi":
+        smoothed_predictions = viterbi_chorus(
+            predictions,
+            switch_penalty=defaults.VITERBI_SWITCH_PENALTY,
+            min_bars=defaults.VITERBI_MIN_BARS)
+    elif decode == "smooth":
+        smoothed_predictions = smooth_predictions(predictions)
+    else:
+        raise ValueError(f"unknown decode {decode!r}; use 'viterbi' or 'smooth'")
 
     # Calculate time values for display
     meter_grid_times = librosa.frames_to_time(
@@ -130,7 +165,8 @@ def make_predictions(model, processed_audio, audio_features, snap_downbeats=True
         if snap_downbeats:
             chorus_start_times, chorus_end_times = snap_boundaries_to_downbeats(
                 chorus_start_times, chorus_end_times, audio_features.audio_path,
-                audio_features=audio_features)
+                audio_features=audio_features,
+                search_bars=defaults.SNAP_WINDOW_BARS)
 
         # Display chorus segments
         print("\nDetected chorus sections:")
@@ -146,7 +182,8 @@ def make_predictions(model, processed_audio, audio_features, snap_downbeats=True
 
 
 def snap_boundaries_to_downbeats(chorus_start_times, chorus_end_times, audio_path,
-                                 device="cpu", audio_features=None, search_bars=2.0):
+                                 device="cpu", audio_features=None,
+                                 search_bars=defaults.SNAP_WINDOW_BARS):
     """Snap chorus boundaries to Beat This! downbeats, if the tracker is available.
 
     When audio_features carries an RMS envelope, each boundary snaps to the

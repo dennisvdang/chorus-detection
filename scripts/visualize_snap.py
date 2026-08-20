@@ -16,6 +16,7 @@ import yaml
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pytorch_core.audio_processor import process_audio
+from pytorch_core import defaults
 from pytorch_core.downbeats import snap_chorus_segments, track_downbeats
 from pytorch_core.model import smooth_predictions
 from pytorch_core.visualization import plot_snap_comparison
@@ -53,8 +54,12 @@ def main():
                         help="Path to save the comparison plot")
     parser.add_argument("--device", type=str, default="cpu",
                         help="Device to run inference on")
-    parser.add_argument("--snap-window", type=float, default=2.0,
+    parser.add_argument("--snap-window", type=float, default=defaults.SNAP_WINDOW_BARS,
                         help="Half-width in bars of the downbeat snap search window")
+    parser.add_argument("--grid-source", choices=["librosa", "beat_this"],
+                        default=defaults.GRID_SOURCE,
+                        help="Bar grid the checkpoint was trained on. A checkpoint "
+                             "read on the other grid is a train/inference mismatch.")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -62,7 +67,8 @@ def main():
 
     processed_audio, audio_features = process_audio(
         args.audio, trim_silence=True,
-        sr=config["data"]["sr"], hop_length=config["data"]["hop_length"])
+        sr=config["data"]["sr"], hop_length=config["data"]["hop_length"],
+        grid_source=args.grid_source, device=args.device)
     if processed_audio is None:
         print(f"Error processing audio: {args.audio}")
         return

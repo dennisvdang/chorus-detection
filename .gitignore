@@ -45,7 +45,13 @@ dist/
 checkpoints/
 models/pytorch/
 *.pt
-results/
+# Experiment results. The measured numbers behind the shipped defaults
+# are small enough to keep; the 249 MB checkpoints beside them are not.
+results/*
+!results/vast-run/
+results/vast-run/*
+!results/vast-run/trials.csv
+!results/vast-run/trial_songs.csv
 ray_results/
 *.log
 

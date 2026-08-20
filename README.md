@@ -12,7 +12,7 @@ The original TensorFlow implementation is preserved on the [`tensorflow`](../../
 
 - [Try the model on HuggingFace Spaces](https://huggingface.co/spaces/dennisvdang/Chorus-Detection)
 - [Labeled training dataset of 332 songs (audio files not included)](data/clean_labeled.csv)
-- [Pre-trained model file](https://github.com/dennisvdang/chorus-detection/releases/download/pytorch-v1.0/crnn_v1.pt)
+- [Pre-trained model file](https://github.com/dennisvdang/chorus-detection/releases/download/beatthis-v1.0/crnn_beatthis_v1.pt) — trained on the tracked-downbeat bar grid; see [Where the boundaries land](#where-the-boundaries-land)
 - [Original model training notebook](notebooks/Automated-Chorus-Detection.ipynb)
 - [Music annotation process](docs/Data_Annotation_Guide.pdf)
 
@@ -167,6 +167,68 @@ The model achieved strong results on the held-out test set as shown in the summa
 
 ![Confusion Matrix](./images/confusion_matrix.png)
 
+### Where the boundaries land
+
+The metrics above count how much chorus the model finds. They do not say where
+the boundaries land, and for beat-matching that is the number that matters: an
+incoming track is aligned to the first chorus start.
+
+A grid ablation run on 2026-08-17 scored ten configurations over the same 51
+held-out songs, varying only the bar grid the model reads, the decoder that
+turns per-bar probabilities into segments, and whether boundaries are moved to
+tracked downbeats. Every configuration is in
+[results/vast-run/trials.csv](results/vast-run/trials.csv), and the per-song
+numbers behind them in
+[results/vast-run/trial_songs.csv](results/vast-run/trial_songs.csv).
+
+| Configuration | First chorus start exact | Within 1 bar | Median boundary error |
+|---|---|---|---|
+| Extrapolated grid, threshold-and-smooth | 7.8% | 43.1% | 5.9 beats |
+| Extrapolated grid, Viterbi | 11.8% | 45.1% | 5.6 beats |
+| Extrapolated grid, Viterbi, snapping | 58.8% | 64.7% | 2.0 beats |
+| Tracked downbeats, Viterbi | 58.8% | 70.6% | 3.0 beats |
+| **Tracked downbeats, Viterbi, snapping** | **76.5%** | **80.4%** | **1.0 beat** |
+
+The last row is what ships. Bar lines come from downbeats tracked by
+[Beat This!](https://github.com/CPJKU/beat_this), per-bar probabilities are
+decoded by the two-state HMM in `pytorch_core/decoding.py`, and each boundary
+is then moved to the best nearby downbeat. Those defaults live in
+`pytorch_core/defaults.py`, and `crnn_beatthis_v1.pt` is the checkpoint trained
+on that grid.
+
+**The bar grid and the checkpoint must change together.** A model trained on
+one bar grid and run on the other is a train/inference mismatch, and none of
+these numbers hold. `tests/test_inference_defaults.py` reads the CSV above and
+fails if the shipped defaults stop matching the configuration that measured
+best.
+
+Two findings explain the size of the gap between the rows:
+
+- **The extrapolated grid sits about a beat out of phase.** Measured against
+  the labelled boundaries, its nearest bar line is a median of 0.89 beats away,
+  and only 14.8% of boundaries fall within a quarter beat of one. The tracked
+  downbeats are a median of 0.083 beats away, with 92.8% within a quarter beat.
+  The extrapolated grid anchors on the first beat librosa detects and assumes
+  that beat is a downbeat.
+- **Frame F1 does not discriminate.** Every configuration scores between 0.869
+  and 0.905 with overlapping error bars. All of them find similar *amounts* of
+  chorus and differ only in where the boundaries land, so F1 alone would have
+  chosen any of them.
+
+#### Limitations
+
+76.5% exact falls short of the 80% target, and 80.4% within one bar falls well
+short of the 95% target.
+
+The error that remains is not a misplaced boundary. Of the 51 test songs, 39
+are exact and 2 are within one bar. Of the 10 that miss, six miss by more than
+four bars, which means the model marked a different section of the song rather
+than the wrong edge of the right one. Correcting all six would give 92.2%
+exact and 96.1% within one bar. The 95% target is therefore reachable only by
+solving wrong-section detection outright; no improvement to boundary placement
+gets there. That is a separate problem and needs its own investigation.
+
+
 ## Works in progress
 
 - Additional training data for other musical segments (e.g. intro, pre-chorus, bridge, verse)
@@ -211,19 +273,37 @@ against the TensorFlow baseline.
 
 4. **Run inference on a new song:**
    ```bash
-   python scripts/inference.py --audio path/to/audio.mp3 \
-       --checkpoint models/pytorch/best_model.pt --output prediction.png
+   python scripts/inference.py --audio path/to/audio.mp3 --output prediction.png
    ```
 
-   Chorus boundaries are snapped to downbeats detected by the
-   [Beat This!](https://github.com/CPJKU/beat_this) tracker (installed via
-   `requirements.txt`), which corrects boundaries that land a beat or bar off
-   the true downbeat grid. Each boundary searches the downbeats within
-   ±2 bars (configurable via `--snap-window`) and picks the one with the
-   strongest RMS energy rise (chorus starts) or fall (chorus ends), so a
-   drop predicted a bar early or late still lands on the actual energy
-   onset. Pass `--no-snap` to disable snapping and use the raw meter-grid
-   boundaries.
+   With no `--checkpoint`, this uses the shipped `crnn_beatthis_v1.pt`,
+   downloading it from the GitHub release on first run. To read a
+   checkpoint you trained yourself, pass both the path and the bar grid it
+   was trained on:
+
+   ```bash
+   python scripts/inference.py --audio path/to/audio.mp3 \
+       --checkpoint models/pytorch/best_model.pt --grid-source librosa
+   ```
+
+   Three defaults come from the ablation in
+   [Where the boundaries land](#where-the-boundaries-land), and each can be
+   turned off:
+
+   - `--grid-source beat_this` draws bar lines from downbeats tracked by
+     [Beat This!](https://github.com/CPJKU/beat_this) instead of extrapolating
+     one tempo across the song. Pass `--grid-source librosa` for the old grid,
+     but only with a checkpoint trained on it.
+   - `--decode viterbi` reads the per-bar probabilities as a two-state HMM and
+     takes the lowest-cost path, instead of thresholding at 0.5. Pass
+     `--decode smooth` for the old decoder.
+   - Snapping then moves each boundary to a downbeat within ±2 bars
+     (`--snap-window`), choosing the one with the strongest RMS energy rise for
+     a chorus start or fall for a chorus end, so a drop predicted a bar early
+     still lands on the actual energy onset. Pass `--no-snap` to disable it.
+
+   `requirements.txt` installs the Beat This! tracker. Without it the default
+   bar grid cannot be built, and inference stops and reports that as the cause.
 
 ### Running the Tests
 

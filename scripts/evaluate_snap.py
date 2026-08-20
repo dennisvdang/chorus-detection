@@ -30,6 +30,7 @@ import torch
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pytorch_core.audio_processor import process_audio
+from pytorch_core import defaults
 from pytorch_core.downbeats import snap_chorus_segments, track_downbeats
 from pytorch_core.model import smooth_predictions
 from scripts.inference import load_config, load_model
@@ -82,7 +83,8 @@ def nearest(value, candidates):
     return float(candidates[np.abs(candidates - value).argmin()])
 
 
-def evaluate_song(song_id, song_df, model, config, device):
+def evaluate_song(song_id, song_df, model, config, device,
+                  grid_source=defaults.GRID_SOURCE):
     """Return per-boundary result dicts for one song."""
     audio_path = os.path.join(AUDIO_DIR, f"{song_id}.mp3")
     if not os.path.exists(audio_path):
@@ -97,7 +99,8 @@ def evaluate_song(song_id, song_df, model, config, device):
     processed_audio, audio_features = process_audio(
         audio_path, trim_silence=False,
         sr=config["data"]["sr"], hop_length=config["data"]["hop_length"],
-        bpm=bpm, time_signature=time_signature)
+        bpm=bpm, time_signature=time_signature,
+        grid_source=grid_source, device=device)
     if processed_audio is None:
         return None
 
@@ -190,6 +193,10 @@ def summarize(csv_path):
 def main():
     parser = argparse.ArgumentParser(description="Evaluate downbeat snapping on the dataset")
     parser.add_argument("--checkpoint", type=str, required=True)
+    parser.add_argument("--grid-source", choices=["librosa", "beat_this"],
+                        default=defaults.GRID_SOURCE,
+                        help="Bar grid the checkpoint was trained on. A checkpoint "
+                             "read on the other grid is a train/inference mismatch.")
     parser.add_argument("--config", type=str, default="config/default.yaml")
     parser.add_argument("--output", type=str, default="output/snap_evaluation.csv")
     parser.add_argument("--device", type=str, default="cpu")
@@ -228,7 +235,8 @@ def main():
                 continue
             try:
                 results = evaluate_song(song_id, labels[labels["SongID"] == song_id],
-                                        model, config, args.device)
+                                        model, config, args.device,
+                                        grid_source=args.grid_source)
             except Exception as e:
                 print(f"[{i+1}/{len(song_ids)}] song {song_id} FAILED: {e}", flush=True)
                 continue

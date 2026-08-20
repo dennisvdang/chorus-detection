@@ -9,6 +9,7 @@ from typing import List, Tuple, Dict, Any, Optional
 import librosa
 from sklearn.preprocessing import StandardScaler
 
+from pytorch_core import defaults
 from pytorch_core.utils import strip_silence
 
 # Constants
@@ -291,7 +292,7 @@ class AudioFeature:
     
     def create_meter_grid(self, bpm: Optional[float] = None,
                           time_signature: Optional[int] = None,
-                          grid_source: str = "librosa",
+                          grid_source: str = defaults.GRID_SOURCE,
                           device: str = "cpu") -> np.ndarray:
         """Create a grid based on the meter of the song, using tempo and beats.
 
@@ -300,10 +301,12 @@ class AudioFeature:
                 octave into the shared range (see fold_tempo). When None, the
                 tempo detected by detect_beats() is used.
             time_signature: Optional known time signature (beats per meter).
-            grid_source: "librosa" extrapolates a single tempo over the song
-                (original behavior); "beat_this" builds the grid from downbeats
-                tracked by Beat This!. Inference must use the same grid_source
-                the model was trained on.
+            grid_source: "beat_this" (the default) builds the grid from
+                downbeats tracked by Beat This!; "librosa" extrapolates a
+                single tempo over the song, the original behaviour, which the
+                grid ablation measured to sit about one beat out of phase.
+                Inference must use the same grid_source the model was trained
+                on. See pytorch_core.defaults.
             device: Torch device for the Beat This! tracker.
         """
         if 'beats' not in self._extracted_features:
@@ -419,7 +422,7 @@ def pad_song(encoded_segments: List[np.ndarray], max_frames: int = MAX_FRAMES,
 
 def process_audio(audio_path, trim_silence=True, sr=SR, hop_length=HOP_LENGTH,
                   extract_spectrogram_only=False, bpm=None, time_signature=None,
-                  grid_source="librosa", device="cpu"):
+                  grid_source=defaults.GRID_SOURCE, device="cpu"):
     """
     Process an audio file for chorus detection.
 
@@ -431,8 +434,9 @@ def process_audio(audio_path, trim_silence=True, sr=SR, hop_length=HOP_LENGTH,
         extract_spectrogram_only: If True, only extract raw spectrograms for the spectrogram-based model
         bpm: Optional known tempo; falls back to beat-tracker estimate when None
         time_signature: Optional known time signature (beats per meter)
-        grid_source: Meter grid source, "librosa" or "beat_this". Must match the
-            grid the model was trained on.
+        grid_source: Meter grid source, "beat_this" (the default) or "librosa".
+            Must match the grid the model was trained on; the shipped
+            checkpoint was trained on "beat_this". See pytorch_core.defaults.
         device: Torch device for the Beat This! tracker (beat_this grid only)
 
     Returns:
