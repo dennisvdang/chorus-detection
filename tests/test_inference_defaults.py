@@ -1,6 +1,6 @@
 """The shipped inference defaults must stay the configuration that measured best.
 
-A grid ablation over 51 held-out songs (results/vast-run/trials.csv, run
+A grid ablation over 51 held-out songs (data/trials.csv, run
 2026-08-17) scored ten configurations on how accurately each places the first
 chorus start. Tracked downbeats + Viterbi + snapping won with 76.5% exact,
 against 11.8% for the extrapolated grid with the same decoder.
@@ -21,13 +21,13 @@ from pytorch_core.audio_processor import process_audio
 from pytorch_core.model import MODEL_PATH, make_predictions
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TRIALS_CSV = os.path.join(REPO_ROOT, "results", "vast-run", "trials.csv")
+TRIALS_CSV = os.path.join(REPO_ROOT, "data", "trials.csv")
 
 
 def _trials():
     """Every scored configuration, as dictionaries."""
     if not os.path.exists(TRIALS_CSV):
-        pytest.skip("results/vast-run/trials.csv not available")
+        pytest.skip("data/trials.csv not available")
     with open(TRIALS_CSV, newline="") as f:
         return list(csv.DictReader(f))
 

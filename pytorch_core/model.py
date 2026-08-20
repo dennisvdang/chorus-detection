@@ -107,7 +107,7 @@ def make_predictions(model, processed_audio, audio_features,
             and takes the lowest-cost path; "smooth" thresholds at 0.5 and
             drops runs shorter than two bars. Viterbi is the default because
             it places 58.8% of first chorus starts exactly against 54.9% for
-            smoothing on this grid (results/vast-run/trials.csv, T3b vs T2b).
+            smoothing on this grid (data/trials.csv, T3b vs T2b).
         snap_downbeats: Move each decoded boundary to a nearby downbeat
             tracked by Beat This!, which raises exact placement from 58.8% to
             76.5% (T4b vs T3b). Requires the beat_this package; without it the

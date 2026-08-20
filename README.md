@@ -235,9 +235,9 @@ No other single change came close.
 To measure this, ten configurations were scored over the same 51 held-out songs
 on 2026-08-17, varying the bar grid, the decoder, and whether boundaries are
 snapped to tracked downbeats. Every configuration is in
-[results/vast-run/trials.csv](results/vast-run/trials.csv) and the per-song
+[data/trials.csv](data/trials.csv) and the per-song
 numbers behind them in
-[results/vast-run/trial_songs.csv](results/vast-run/trial_songs.csv).
+[data/trial_songs.csv](data/trial_songs.csv).
 
 | Configuration | First chorus start exact | Within 1 bar | Median boundary error |
 |---|---|---|---|

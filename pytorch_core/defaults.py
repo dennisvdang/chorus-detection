@@ -3,7 +3,7 @@
 A grid ablation run on 2026-08-17 scored ten configurations over the same 51
 held-out songs, measuring how accurately each places the *first chorus start* --
 the timestamp an incoming track is aligned to when mixing. The full table is in
-``results/vast-run/trials.csv``; the five rows that matter:
+``data/trials.csv``; the five rows that matter:
 
 ===================================  =======  ============  ==================
 Configuration                          Exact  Within 1 bar  Median error
