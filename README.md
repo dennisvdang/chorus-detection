@@ -4,9 +4,7 @@
 
 ## Overview
 
-A hierarchical convolutional recurrent neural network designed for detecting choruses in music recordings, implemented in PyTorch. The model was trained on 332 annotated songs from electronic music genres and achieved an F1 score of 0.871 (Precision: 0.867, Recall: 0.875) on unseen test data.
-
-F1 measures how much chorus is found, not where its boundaries fall. On the same held-out songs the shipped configuration places 76.5% of first chorus starts exactly on the labelled bar and 80.4% within one bar. Reaching that depended far more on how the bar lines are drawn than on the model itself — see [Where the boundaries land](#where-the-boundaries-land).
+A hierarchical convolutional recurrent neural network designed for detecting choruses in music recordings, implemented in PyTorch. The model was trained on 332 annotated songs from electronic music genres and achieved an F1 score of 0.871 (Precision: 0.867, Recall: 0.875) on unseen test data. The model output is reliant on the song's beat/bar grid. The current preprocessing configuration placed 76.5% of the first detected chorus start boundary exactly on the labeled bar/measure and 80.4% within one bar.
 
 For more details, scroll down to the [Project Technical Summary section](#project-technical-summary).
 
@@ -318,10 +316,16 @@ against the TensorFlow baseline.
    plus `data/clean_labeled.csv`). This writes per-song segment and label
    pickles to `data/segments_V2/` and `data/labels_V2/`:
    ```bash
-   python scripts/preprocess.py
+   python scripts/preprocess.py --grid-source beat_this
    # smoke-test on a few songs first:
-   python scripts/preprocess.py --limit 3
+   python scripts/preprocess.py --grid-source beat_this --limit 3
    ```
+
+   `beat_this` is the default, so the flag is optional. It is written out here
+   because this choice has to match the one used at inference in step 4. A
+   model trained on one bar grid and run on the other is a train/inference
+   mismatch. To train on the extrapolated grid instead, pass
+   `--grid-source librosa` here **and** at inference.
 
 3. **Train the model:**
    ```bash

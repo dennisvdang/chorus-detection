@@ -50,8 +50,13 @@ def test_process_one_song(tmp_path):
     seg_dir.mkdir()
     lab_dir.mkdir()
 
+    # Pinned to the librosa grid on purpose: this test checks the segment
+    # and label plumbing, and the default beat_this grid would download the
+    # Beat This! tracker weights. tests/test_inference_defaults.py is what
+    # asserts the default is beat_this.
     n_meters, max_frames = preprocess.process_song(
-        1, song_df, audio_path, str(seg_dir), str(lab_dir))
+        1, song_df, audio_path, str(seg_dir), str(lab_dir),
+        grid_source="librosa")
 
     with open(seg_dir / "1_data.pkl", "rb") as f:
         segments = pickle.load(f)

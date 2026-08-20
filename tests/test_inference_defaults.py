@@ -83,6 +83,51 @@ def test_viterbi_parameters_match_the_ones_the_experiment_used():
     assert defaults.SNAP_WINDOW_BARS == 2.0
 
 
+def _parse_with_no_options(module, required_args):
+    """Return the namespace a script's own parser produces from required args only.
+
+    Intercepts parse_args inside main(), so this reads the real parser the
+    script declares rather than a copy of it, then stops main() before it
+    touches the filesystem.
+    """
+    captured = {}
+    real_parse_args = argparse.ArgumentParser.parse_args
+
+    def capture(self, args=None, namespace=None):
+        parsed = real_parse_args(self, required_args, namespace)
+        captured.update(vars(parsed))
+        raise SystemExit(0)
+
+    original = argparse.ArgumentParser.parse_args
+    argparse.ArgumentParser.parse_args = capture
+    try:
+        try:
+            module.main()
+        except SystemExit:
+            pass
+    finally:
+        argparse.ArgumentParser.parse_args = original
+    return captured
+
+
+def test_training_data_is_built_on_the_same_grid_inference_reads():
+    """Training and inference must default to the same bar grid.
+
+    Following the README in order -- preprocess, train, infer -- must not
+    produce a model trained on one grid and run on the other.
+    """
+    import scripts.preprocess as preprocess
+
+    signature_default = inspect.signature(
+        preprocess.process_song).parameters["grid_source"].default
+    assert signature_default == defaults.GRID_SOURCE
+
+    cli_default = _parse_with_no_options(preprocess, [])["grid_source"]
+    assert cli_default == defaults.GRID_SOURCE
+    assert cli_default == inspect.signature(
+        process_audio).parameters["grid_source"].default
+
+
 def test_default_checkpoint_is_the_one_trained_on_the_tracked_downbeat_grid():
     """The grid and the weights must change together or the numbers do not hold."""
     assert os.path.basename(MODEL_PATH) == "crnn_beatthis_v1.pt"

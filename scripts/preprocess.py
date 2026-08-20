@@ -45,6 +45,7 @@ from tqdm import tqdm
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # The one tempo-range rule shared with inference; re-exported for tests.
+from pytorch_core import defaults  # noqa: E402
 from pytorch_core.audio_processor import fold_tempo  # noqa: E402,F401
 
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
@@ -200,16 +201,18 @@ def extract_combined_features(y: np.ndarray, y_harm: np.ndarray, y_perc: np.ndar
 
 def process_song(song_id, song_df: pd.DataFrame, audio_path: str,
                  segments_dir: str, labels_dir: str,
-                 grid_source: str = "librosa", device: str = "cpu",
+                 grid_source: str = defaults.GRID_SOURCE, device: str = "cpu",
                  nmf_device: str = None,
                  tempo_source: str = "dataset", random_seed=None) -> Tuple[int, int]:
     """Process a single song and write its segment/label pickles.
 
     Args:
-        grid_source: "librosa" builds the meter grid by extrapolating a single
-            tempo over the song (original behavior); "beat_this" builds it from
+        grid_source: "beat_this" (the default) builds the meter grid from
             downbeats tracked by Beat This!, which handles metrical irregularity
-            without a 4/4 prior.
+            without a 4/4 prior; "librosa" extrapolates a single tempo over the
+            song, the original behavior. This must match the grid used at
+            inference, or the trained model reads bars that were drawn a
+            different way. See pytorch_core.defaults.
         device: Torch device for the Beat This! tracker when grid_source is
             "beat_this".
         nmf_device: Torch device for the NMF fits; None keeps sklearn on CPU.
@@ -298,8 +301,11 @@ def main():
                         help="Only process these song IDs")
     parser.add_argument("--overwrite", action="store_true",
                         help="Reprocess songs whose output pickles already exist")
-    parser.add_argument("--grid-source", choices=["librosa", "beat_this"], default="librosa",
-                        help="Meter grid source: librosa tempo extrapolation or Beat This! downbeats")
+    parser.add_argument("--grid-source", choices=["librosa", "beat_this"],
+                        default=defaults.GRID_SOURCE,
+                        help="Meter grid source: Beat This! downbeats (beat_this, "
+                             "the default) or librosa tempo extrapolation "
+                             "(librosa). Inference must use the same grid.")
     parser.add_argument("--device", default="cpu",
                         help="Torch device for the Beat This! tracker (beat_this grid only)")
     parser.add_argument("--nmf-device", default=None,
