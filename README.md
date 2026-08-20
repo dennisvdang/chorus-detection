@@ -4,7 +4,11 @@
 
 ## Overview
 
-A hierarchical convolutional recurrent neural network designed for detecting choruses in music recordings, implemented in PyTorch. The model was trained on 332 annotated songs from electronic music genres and achieved an F1 score of 0.871 (Precision: 0.867, Recall: 0.875) on unseen test data. For more details, scroll down to the [Project Technical Summary section](#project-technical-summary).
+A hierarchical convolutional recurrent neural network designed for detecting choruses in music recordings, implemented in PyTorch. The model was trained on 332 annotated songs from electronic music genres and achieved an F1 score of 0.871 (Precision: 0.867, Recall: 0.875) on unseen test data.
+
+F1 measures how much chorus is found, not where its boundaries fall. On the same held-out songs the shipped configuration places 76.5% of first chorus starts exactly on the labelled bar and 80.4% within one bar. Reaching that depended far more on how the bar lines are drawn than on the model itself — see [Where the boundaries land](#where-the-boundaries-land).
+
+For more details, scroll down to the [Project Technical Summary section](#project-technical-summary).
 
 The original TensorFlow implementation is preserved on the [`tensorflow`](../../tree/tensorflow) branch.
 
@@ -73,15 +77,47 @@ chorus-detection/
 
 The dataset consists of 332 manually labeled songs, predominantly from electronic music genres. Data preparation involved:
 
-1. **Audio preprocessing**: Formatting songs uniformly, processing at a consistent sampling rate, trimming silence, and extracting metadata using Spotify's API. [Link to preprocessing notebook](notebooks/Preprocessing.ipynb)
+1. **Audio preprocessing**: Formatting songs uniformly, processing at a consistent sampling rate, trimming silence, and extracting metadata using Spotify's API. [Link to dataset preparation notebook](notebooks/Dataset-Prep.ipynb)
 
 2. **Manual Chorus Labeling**: Labeling the start and end timestamps of choruses following a set of guidelines. More details on the annotation process can be found in the [Annotation Guide pdf.](docs/Data_Annotation_Guide.pdf)
 
 ### Model Preprocessing
 
-- Features such as Root Mean Squared energy, key-invariant chromagrams, Melspectrograms, MFCCs, and tempograms were extracted. These features were decomposed using Non-negative Matrix Factorization using an optimal number of components derived in our exploratory analysis.
+Preprocessing does two things: it extracts features from the audio, and it
+decides where the bar lines fall. The second one turned out to matter far more
+than the first, so it is described first here. See
+[Where the boundaries land](#where-the-boundaries-land) for the measurements.
 
-- Songs were segmented into timesteps based on musical meters, with positional and grid encoding applied to every audio frame and meter, respectively. Songs and labels were uniformly padded and split into train/validation/test sets, processed into batch sizes of 32 using a custom generator.
+**Drawing the bar grid.** The model reads a song one bar at a time, so the bar
+grid decides what every timestep contains and where every predicted boundary
+can possibly land. Two ways of building it are implemented, and
+`--grid-source` selects between them:
+
+| Grid | How the bar lines are placed |
+|---|---|
+| `beat_this` (**shipped default**) | Bar lines are the downbeats tracked by [Beat This!](https://github.com/CPJKU/beat_this) (ISMIR 2024). The tracker follows the song, so tempo drift and irregular bars do not accumulate error. |
+| `librosa` | One tempo and one anchor beat, extrapolated forward and backward at constant spacing and grouped into fours. This is the original behaviour. |
+
+The extrapolated grid anchors on the first beat librosa detects and assumes
+that beat is a downbeat. Measured against the labelled chorus boundaries, its
+nearest bar line is a median of 0.89 beats away and only 14.8% of boundaries
+fall within a quarter beat of one. The tracked downbeats are a median of 0.083
+beats away, with 92.8% within a quarter beat. A grid that is a beat out of
+phase displaces every prediction made on it, no matter how good the model is.
+
+**Extracting features.** Root mean squared energy, key-invariant chromagrams,
+mel spectrograms, MFCCs, and tempograms are extracted per frame, then
+decomposed with Non-negative Matrix Factorization using the component count
+chosen in the exploratory analysis. Frames are grouped into the bars defined
+above, positional encoding is applied per frame and grid encoding per bar, and
+songs and labels are padded to a uniform length before the train, validation,
+and test split.
+
+**Training data and inference must use the same grid.** A model trained on one
+grid and run on the other is a train/inference mismatch, and none of the
+measured numbers hold. `scripts/preprocess.py` and `scripts/inference.py` both
+take `--grid-source` for this reason, and the shipped checkpoint
+`crnn_beatthis_v1.pt` was built on `beat_this`.
 
 Below are examples of audio feature visualizations of a song with 3 choruses (highlighted in green). The gridlines represent the musical meters, which are used to divide the song into segments; these segments then serve as the timesteps for the CRNN input.
 
@@ -153,6 +189,26 @@ The model is trained with a masked binary cross-entropy loss that ignores padded
 - Trained for up to 50 epochs (stopped early after 24 epochs). Training/Validation Loss and Accuracy plotted below:
 ![Training History](images/training_history.png)
 
+### Post-processing
+
+The model emits one chorus probability per bar. Two steps turn that into
+timestamps, and both are on by default.
+
+**Decoding.** `--decode viterbi` reads the bar sequence as a two-state hidden
+Markov model, where each bar pays a cost to be labelled chorus or not, plus a
+fixed penalty for switching state between adjacent bars. Viterbi finds the
+lowest-cost path, and runs shorter than four bars are then dissolved, which
+encodes the prior that a chorus spans whole phrases. The alternative,
+`--decode smooth`, simply thresholds at 0.5 and drops runs shorter than two
+bars, with no notion of how likely a section change is. The implementation is
+in `pytorch_core/decoding.py`.
+
+**Snapping.** Each decoded boundary is then moved to a downbeat within plus or
+minus two bars, choosing the one with the strongest RMS energy rise for a
+chorus start or the strongest fall for a chorus end. A drop predicted a bar
+early therefore still lands on the actual energy onset. `--no-snap` turns this
+off, and `--snap-window` changes the search width.
+
 ### Results
 
 The model achieved strong results on the held-out test set as shown in the summary table. Visualizations of the predictions on sample test songs are also provided and can be found in the [test_predictions folder](images/test_predictions).
@@ -173,47 +229,50 @@ The metrics above count how much chorus the model finds. They do not say where
 the boundaries land, and for beat-matching that is the number that matters: an
 incoming track is aligned to the first chorus start.
 
-A grid ablation run on 2026-08-17 scored ten configurations over the same 51
-held-out songs, varying only the bar grid the model reads, the decoder that
-turns per-bar probabilities into segments, and whether boundaries are moved to
-tracked downbeats. Every configuration is in
-[results/vast-run/trials.csv](results/vast-run/trials.csv), and the per-song
+**The bar grid is the dominant factor, by a wide margin.** Retraining the same
+model on the same data with the same decoder, changing only how bar lines are
+drawn, moved exact placement of the first chorus start from **7.8% to 54.9%**.
+No other single change came close.
+
+To measure this, ten configurations were scored over the same 51 held-out songs
+on 2026-08-17, varying the bar grid, the decoder, and whether boundaries are
+snapped to tracked downbeats. Every configuration is in
+[results/vast-run/trials.csv](results/vast-run/trials.csv) and the per-song
 numbers behind them in
 [results/vast-run/trial_songs.csv](results/vast-run/trial_songs.csv).
 
 | Configuration | First chorus start exact | Within 1 bar | Median boundary error |
 |---|---|---|---|
 | Extrapolated grid, threshold-and-smooth | 7.8% | 43.1% | 5.9 beats |
+| **Tracked downbeats, threshold-and-smooth** | **54.9%** | 68.6% | 4.0 beats |
 | Extrapolated grid, Viterbi | 11.8% | 45.1% | 5.6 beats |
 | Extrapolated grid, Viterbi, snapping | 58.8% | 64.7% | 2.0 beats |
 | Tracked downbeats, Viterbi | 58.8% | 70.6% | 3.0 beats |
 | **Tracked downbeats, Viterbi, snapping** | **76.5%** | **80.4%** | **1.0 beat** |
 
-The last row is what ships. Bar lines come from downbeats tracked by
-[Beat This!](https://github.com/CPJKU/beat_this), per-bar probabilities are
-decoded by the two-state HMM in `pytorch_core/decoding.py`, and each boundary
-is then moved to the best nearby downbeat. Those defaults live in
-`pytorch_core/defaults.py`, and `crnn_beatthis_v1.pt` is the checkpoint trained
-on that grid.
+The first two rows are the grid comparison on its own: same model architecture,
+same training data, same decoder, no snapping, only the bar lines differ.
 
-**The bar grid and the checkpoint must change together.** A model trained on
-one bar grid and run on the other is a train/inference mismatch, and none of
-these numbers hold. `tests/test_inference_defaults.py` reads the CSV above and
-fails if the shipped defaults stop matching the configuration that measured
-best.
+**The best configuration found was the tracked-downbeat grid, Viterbi decoding,
+and snapping: 76.5% exact, 80.4% within one bar, and the lowest boundary error
+at 1.0 beat.** That is what ships. The settings live in
+`pytorch_core/defaults.py` and `crnn_beatthis_v1.pt` is the checkpoint trained
+on that grid. `tests/test_inference_defaults.py` reads the CSV above and fails
+if the shipped defaults stop matching the configuration that measured best.
 
-Two findings explain the size of the gap between the rows:
+![Grid ablation results](./images/grid_ablation_results.png)
 
-- **The extrapolated grid sits about a beat out of phase.** Measured against
-  the labelled boundaries, its nearest bar line is a median of 0.89 beats away,
-  and only 14.8% of boundaries fall within a quarter beat of one. The tracked
-  downbeats are a median of 0.083 beats away, with 92.8% within a quarter beat.
-  The extrapolated grid anchors on the first beat librosa detects and assumes
-  that beat is a downbeat.
+Two further findings:
+
+- **Decoding and snapping help, but only on top of a correct grid.** Viterbi
+  decoding alone moved the extrapolated grid from 7.8% to 11.8%. Snapping is
+  worth more than decoding, because it corrects grid phase error directly, but
+  even the extrapolated grid with both applied (58.8%) does not reach the
+  tracked-downbeat grid with both applied (76.5%).
 - **Frame F1 does not discriminate.** Every configuration scores between 0.869
   and 0.905 with overlapping error bars. All of them find similar *amounts* of
-  chorus and differ only in where the boundaries land, so F1 alone would have
-  chosen any of them.
+  chorus and differ only in where the boundaries land, so choosing on F1 alone
+  would have picked any of them, including the worst.
 
 #### Limitations
 
