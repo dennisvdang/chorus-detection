@@ -9,7 +9,8 @@ setup(
     description="A tool for detecting chorus sections in audio files",
     author="Dennis Dang",
     url="https://github.com/dennisvdang/chorus-detection",
-    packages=find_packages(),
+    # Exclude tests/ so an install does not add a top-level "tests" package.
+    packages=find_packages(exclude=("tests", "tests.*")),
     include_package_data=True,
     install_requires=[
         "numpy>=1.24.0,<1.25.0",
